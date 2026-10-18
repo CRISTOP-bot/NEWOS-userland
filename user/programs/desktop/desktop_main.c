@@ -10,6 +10,7 @@
  */
 
 #include "../../lib/nshlib.h"
+#include "nova/ntk_color.h"
 
 #define PANEL_H     28u
 #define TASKBAR_H   24u
@@ -202,6 +203,27 @@ static void hline(u64 x, u64 y, u64 w, u32 color)
         if (w > clip_right - x) w = clip_right - x;
     }
     for (i = 0; i < w; i++) canvas[y * screen_w + x + i] = color;
+}
+
+/* Render a vertical RGB gradient using Nova NTK's portable color math.
+ * NEWOS presents the completed canvas through SYS_FBWRITE in present(). */
+static void nova_gradient_rect(u64 x, u64 y, u64 w, u64 h,
+                               u32 top_rgb, u32 bottom_rgb)
+{
+    u64 row;
+    NtkColor top = ntk_color_from_rgb((uint8_t)(top_rgb >> 16),
+                                      (uint8_t)(top_rgb >> 8),
+                                      (uint8_t)top_rgb);
+    NtkColor bottom = ntk_color_from_rgb((uint8_t)(bottom_rgb >> 16),
+                                         (uint8_t)(bottom_rgb >> 8),
+                                         (uint8_t)bottom_rgb);
+    for (row = 0; row < h; row++) {
+        uint8_t weight = h > 1u ? (uint8_t)((row * 255u) / (h - 1u)) : 0u;
+        NtkColor pixel = ntk_color_lerp_u8(top, bottom, weight);
+        u32 rgb = ((u32)ntk_color_r(pixel) << 16) |
+                  ((u32)ntk_color_g(pixel) << 8) | ntk_color_b(pixel);
+        hline(x, y + row, w, rgb);
+    }
 }
 
 static void vline(u64 x, u64 y, u64 h, u32 color)
@@ -431,8 +453,9 @@ static void draw_window(int i, u64 mem_used, u64 mem_total,
     title_color = WTB[i];
     if (!focused)
         title_color = (((title_color & 0xfefefeu) >> 1) + 0x202020u);
-    solid((u64)(x + 1), (u64)(y + 1), (u64)(w - 2), PANEL_H - 1,
-          title_color);
+    nova_gradient_rect((u64)(x + 1), (u64)(y + 1), (u64)(w - 2),
+                       PANEL_H - 1, title_color,
+                       ((title_color & 0xfefefeu) >> 2) + 0x101010u);
     if (focused) {
         hline((u64)x, (u64)y, (u64)w, CLR_BORDER_FOCUS);
     }
@@ -622,7 +645,7 @@ static void redraw_all(u64 pw, u64 ph, u64 mem_used, u64 mem_total,
                 CLR_TEXT, CLR_TASKBAR);
     }
     /* Panel: uname supplies the release; sysinfo supplies live uptime. */
-    solid(0, 0, pw, PANEL_H, CLR_PANEL);
+    nova_gradient_rect(0, 0, pw, PANEL_H, 0x1a2a45u, CLR_PANEL);
     hline(0, PANEL_H - 1, pw, 0x354252u);
     solid(8, 6, 15, 15, CLR_ACCENT);
     text_at("N", 11, 10, 2u, 0x101522u, CLR_ACCENT);
