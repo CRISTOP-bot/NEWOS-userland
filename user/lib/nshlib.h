@@ -8,7 +8,15 @@
 #ifndef NSHLIB_H
 #define NSHLIB_H
 
-#include "../../abi/syscall_abi.h"
+#if defined(__has_include)
+#  if __has_include(<newos/syscall_abi.h>)
+#    include <newos/syscall_abi.h>
+#  else
+#    include "../../abi/syscall_abi.h"
+#  endif
+#else
+#  include "../../abi/syscall_abi.h"
+#endif
 
 typedef unsigned long  u64;
 typedef unsigned int   u32;

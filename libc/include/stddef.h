@@ -6,6 +6,11 @@
 typedef unsigned long size_t;
 typedef long ssize_t;
 
+#ifndef _WINT_T
+#define _WINT_T
+typedef __WINT_TYPE__ wint_t;
+#endif
+
 #define NULL ((void *)0)
 #define EOF (-1)
 

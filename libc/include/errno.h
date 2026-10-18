@@ -5,6 +5,9 @@
 
 extern int errno;
 
+/* Newlib libm compatibility; currently returns the process-wide errno. */
+int *__errno(void);
+
 #define EPERM 1
 #define ENOENT 2
 #define EIO 5
