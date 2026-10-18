@@ -2,6 +2,13 @@
 
 int errno;
 
+/* Newlib's math library obtains errno through this accessor. NEWOS currently
+ * has a single process-wide errno value; this can become thread-local later. */
+int *__errno(void)
+{
+    return &errno;
+}
+
 const char *strerror(int e)
 {
     switch (e) {
