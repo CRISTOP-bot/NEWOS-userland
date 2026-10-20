@@ -9,6 +9,11 @@
 
 #include "../../lib/nshlib.h"
 
+/* Injected by the build from the repository VERSION file. */
+#ifndef NEWOS_VERSION
+#define NEWOS_VERSION "0.0.0"
+#endif
+
 #define LINE_MAX 256
 #define HIST_MAX 16
 #define MAX_ARGS 16
@@ -474,7 +479,7 @@ static int builtin_history(void)
 
 static int builtin_help(void)
 {
-    nputs("nsh - NEWOS 0.3.0-gui shell\n");
+    nputs("nsh - NEWOS " NEWOS_VERSION " shell\n");
     nputs("builtins: cd, exit, help, history, clear\n");
     nputs("/bin: ls cat echo mkdir rmdir rm mv touch pwd clear uname\n");
     nputs("       hostname whoami id date uptime ps kill sleep free\n");
