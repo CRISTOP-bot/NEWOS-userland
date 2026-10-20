@@ -2,14 +2,18 @@
 
 int main(int argc, char **argv)
 {
-    static struct nsh_sysinfo si;
-    u64 s, m, h, d;
+    u64 s = 0, centi = 0, m, h, d;
 
     (void)argc;
     (void)argv;
-    if (sys_sysinfo(&si) != 0)
-        return fail("uptime", "cannot read system info");
-    s = si.uptime_sec;
+    if (nsh_proc_uptime(&s, &centi) != 0) {
+        static struct nsh_sysinfo si;
+        if (sys_sysinfo(&si) != 0)
+            return fail("uptime", "cannot read system info");
+        s = si.uptime_sec;
+    }
+    (void)centi;
+
     d = s / 86400;
     s %= 86400;
     h = s / 3600;

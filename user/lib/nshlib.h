@@ -58,6 +58,9 @@ long sys_kill(pid_t pid);
 long sys_uname(struct nsh_uname *u);
 long sys_gettime(struct nsh_time *t);
 long sys_sysinfo(struct nsh_sysinfo *si);
+/* Read-only /proc helpers; return 0 on success. */
+int nsh_proc_meminfo(u64 *total_kb, u64 *free_kb);
+int nsh_proc_uptime(u64 *sec, u64 *centi);
 long sys_fbinfo(struct nsh_fbinfo *fi);
 long sys_fbwrite(const struct nsh_fbwrite *rq);
 long sys_lseek(int fd, long off, int whence);

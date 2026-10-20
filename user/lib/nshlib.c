@@ -127,6 +127,97 @@ long sys_sysinfo(struct nsh_sysinfo *si)
     return SYSC1(SYS_SYSINFO, si);
 }
 
+/* --- /proc helpers ----------------------------------------------------- */
+
+static int proc_read_file(const char *path, char *buf, u64 size)
+{
+    int fd;
+    u64 used = 0;
+
+    if (!buf || size < 2)
+        return -1;
+    fd = (int)sys_open(path, O_READ);
+    if (fd < 0)
+        return -1;
+    while (used + 1 < size) {
+        long n = sys_read(fd, buf + used, size - 1 - used);
+        if (n < 0) {
+            sys_close(fd);
+            return -1;
+        }
+        if (n == 0)
+            break;
+        used += (u64)n;
+    }
+    sys_close(fd);
+    buf[used] = '\0';
+    return used ? 0 : -1;
+}
+
+static int proc_kb_field(const char *buf, const char *key, u64 *out)
+{
+    const char *p = buf;
+    u64 klen = nstrlen(key);
+
+    while (*p) {
+        if (nstrncmp(p, key, klen) == 0) {
+            p += klen;
+            while (*p == ' ' || *p == '\t')
+                p++;
+            if (*p < '0' || *p > '9')
+                return -1;
+            *out = natou(p);
+            return 0;
+        }
+        while (*p && *p != '\n')
+            p++;
+        if (*p)
+            p++;
+    }
+    return -1;
+}
+
+int nsh_proc_meminfo(u64 *total_kb, u64 *free_kb)
+{
+    char buf[512];
+
+    if (!total_kb || !free_kb)
+        return -1;
+    if (proc_read_file("/proc/meminfo", buf, sizeof(buf)) != 0)
+        return -1;
+    if (proc_kb_field(buf, "MemTotal:", total_kb) != 0)
+        return -1;
+    if (proc_kb_field(buf, "MemFree:", free_kb) != 0)
+        return -1;
+    return 0;
+}
+
+int nsh_proc_uptime(u64 *sec, u64 *centi)
+{
+    char buf[64];
+    const char *p = buf;
+
+    if (!sec || !centi)
+        return -1;
+    if (proc_read_file("/proc/uptime", buf, sizeof(buf)) != 0)
+        return -1;
+    if (*p < '0' || *p > '9')
+        return -1;
+
+    *sec = natou(p);
+    while (*p >= '0' && *p <= '9')
+        p++;
+    *centi = 0;
+    if (*p == '.') {
+        p++;
+        if (*p >= '0' && *p <= '9')
+            *centi = (u64)(*p++ - '0') * 10;
+        if (*p >= '0' && *p <= '9')
+            *centi += (u64)(*p - '0');
+    }
+    return 0;
+}
+
 long sys_fbinfo(struct nsh_fbinfo *fi)
 {
     return SYSC1(SYS_FBINFO, fi);
@@ -339,6 +430,29 @@ void put2(u64 v)
     nputc((char)('0' + (v % 10)));
 }
 
+static void emit_padded(int fd, const char *s, int len, int width, int zero)
+{
+    int pad = width > len ? width - len : 0;
+
+    if (zero && len > 0 && s[0] == '-') {
+        sys_write(fd, s, 1);
+        s++;
+        len--;
+        while (pad-- > 0)
+            sys_write(fd, "0", 1);
+        sys_write(fd, s, (u64)len);
+        return;
+    }
+    if (!zero) {
+        while (pad-- > 0)
+            sys_write(fd, " ", 1);
+    } else {
+        while (pad-- > 0)
+            sys_write(fd, "0", 1);
+    }
+    sys_write(fd, s, (u64)len);
+}
+
 static void vemits(int fd, const char *fmt, __builtin_va_list ap)
 {
     char tmp[32];
@@ -348,12 +462,22 @@ static void vemits(int fd, const char *fmt, __builtin_va_list ap)
             continue;
         }
         fmt++;
+        int zero = 0;
+        int width = 0;
+        if (*fmt == '0') {
+            zero = 1;
+            fmt++;
+        }
+        while (*fmt >= '0' && *fmt <= '9') {
+            width = width * 10 + (*fmt - '0');
+            fmt++;
+        }
+
         switch (*fmt) {
         case 's': {
             const char *s = __builtin_va_arg(ap, const char *);
-            u64 n = nstrlen(s);
-            if (n)
-                sys_write(fd, s, n);
+            int n = (int)nstrlen(s);
+            emit_padded(fd, s, n, width, zero);
             break;
         }
         case 'd': {
@@ -370,7 +494,8 @@ static void vemits(int fd, const char *fmt, __builtin_va_list ap)
             }
             if (neg)
                 tmp[--i] = '-';
-            sys_write(fd, &tmp[i], sizeof(tmp) - (u64)i);
+            emit_padded(fd, &tmp[i], (int)(sizeof(tmp) - (u64)i), width,
+                        zero);
             break;
         }
         case 'u': {
@@ -382,7 +507,8 @@ static void vemits(int fd, const char *fmt, __builtin_va_list ap)
                 tmp[--i] = (char)('0' + (u % 10));
                 u /= 10;
             }
-            sys_write(fd, &tmp[i], sizeof(tmp) - (u64)i);
+            emit_padded(fd, &tmp[i], (int)(sizeof(tmp) - (u64)i), width,
+                        zero);
             break;
         }
         case 'x': {
@@ -395,16 +521,18 @@ static void vemits(int fd, const char *fmt, __builtin_va_list ap)
                 tmp[--i] = (char)(d < 10 ? '0' + d : 'a' + d - 10);
                 u >>= 4;
             }
-            sys_write(fd, &tmp[i], sizeof(tmp) - (u64)i);
+            emit_padded(fd, &tmp[i], (int)(sizeof(tmp) - (u64)i), width,
+                        zero);
             break;
         }
         case 'c': {
             char c = (char)__builtin_va_arg(ap, int);
-            sys_write(fd, &c, 1);
+            emit_padded(fd, &c, 1, width, zero);
             break;
         }
         default:
-            sys_write(fd, fmt, 1);
+            if (*fmt)
+                sys_write(fd, fmt, 1);
             break;
         }
     }
