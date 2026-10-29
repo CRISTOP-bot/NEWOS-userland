@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/include/sys/ioctl.h
+ * Description: Only TIOCGWINSZ is implemented, answered from the live framebuffer
+ * Added: 2026-10-17
+ */
 #ifndef NEWOS_LIBC_SYS_IOCTL_H
 #define NEWOS_LIBC_SYS_IOCTL_H
 

@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/about/about_main.c
+ * Description: about: NEWOS system information. Every line comes from a live source:
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 /* about: NEWOS system information. Every line comes from a live source:

@@ -25,4 +25,3 @@ jobs:
           libc/src/signal.c
           libc/src/string.c
           libc/src/termios.c
-          user/programs/ltest/ltest_main.c

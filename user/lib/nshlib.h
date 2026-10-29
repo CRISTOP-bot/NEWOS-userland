@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/lib/nshlib.h
+ * Description: nshlib: shared userland library for NEWOS /bin programs.
+ * Added: 2026-10-17
+ */
 /* nshlib: shared userland library for NEWOS /bin programs.
  *
  * Freestanding (no libc): thin int $0x80 wrappers plus the small string
@@ -65,6 +71,14 @@ long sys_fbinfo(struct nsh_fbinfo *fi);
 long sys_fbwrite(const struct nsh_fbwrite *rq);
 long sys_lseek(int fd, long off, int whence);
 long sys_mouse_get(struct nsh_mouse *m);
+/* Foreground GUI input: grab routes PS/2 bytes to sys_kbd_read() until
+ * released. sys_kbd_read() is non-blocking and returns bytes copied. */
+long sys_kbd_grab(int on);
+long sys_kbd_read(void *buf, u64 len);
+/* Tell the kernel that a userspace framebuffer compositor owns the panel:
+ * fbcon stops painting logs and the legacy mouse arrow until this process
+ * releases it (or exits). */
+long sys_console_gui(int on);
 long sys_pipe(int fds[2]);
 long sys_spawn3(const char *path, char **argv, int argc, int fdin, int fdout);
 void sys_exit(int code);

@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/clear/clear_main.c
+ * Description: userland program entry for clear
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 int main(int argc, char **argv)

@@ -1,0 +1,91 @@
+# frotz — Z-machine interpreter for NEWOS
+
+`/bin/frotz` plays Infocom-era Z-code story files (versions 1–8) on the
+NEWOS console through the dumb-terminal driver.
+
+Upstream project: https://github.com/DavidGriffith/frotz, pinned to the
+`2.44` release. Frotz was originally written by Stefan Jokisch (1995-1997),
+ported to Unix by Galen Hazelwood, and is maintained by David Griffith. The
+dumb driver (this port's front end) is Copyright 1997-1998 Alva/Alembic
+Petrofsky. The whole program is distributed under the GNU GPL version 2 or
+later; the full text ships in `COPYING.frotz` in this directory.
+
+## Layout
+
+- `*.c`, `frotz.h`, `setup.h`, `dumb_frotz.h` — upstream `src/common/` +
+  `src/dumb/` sources, copied flat into one directory. `src/dumb/getopt.c`,
+  libcurses/dos/sdl drivers are not used by the dumb driver and are not
+  ported.
+- `frotz_run.c` — upstream `src/common/main.c`, with `main` renamed
+  `frotz_main` (see below).
+- `frotz_main.c` — NEWOS entry point: the toolbox convention is one
+  `main(argc, argv)` per `/bin` program; it only forwards to `frotz_main`.
+- `COPYING.frotz` — upstream upstream license text (GPL-2).
+
+No Frotz features were removed on purpose: Quetzal save/restore, the
+status line, `\` runtime settings, stable-random and zcode version
+checking all work as upstream. Story files are plain files; NEWOS has no
+network transfer mechanism, so users supply their own `.z3`/`.z5` files
+(e.g. from the if-archive) by any offline means. Demo story:
+`/usr/share/zcode/mini.z3`, generated from `tools/frotz/tests/`.
+
+## Port deltas from upstream 2.44
+
+Only six files differ from upstream byte-for-byte code (`buffer.c`,
+`err.c`, `files.c`, all of `object/*.c` etc. are untouched; `frotz.h` and
+`setup.h` are identical). Each delta is commented at the site, prefixed
+`NEWOS port:`.
+
+1. **Entry point** — `main.c` → `frotz_run.c`, `main` → `frotz_main`
+   (collides with the per-program `main` convention). Thin `frotz_main.c`
+   is the `/bin` entry.
+2. **No FP registers** — userland compiles `-mgeneral-regs-only`:
+   - `dumb_input.c`: `static float speed` → `speed_x10` fixed-point
+     tenths, `atof` replaced by `parse_speed_x10()`, `%g`
+     → `printf("%d.%d", ...)`, elapsed computations multiplied through
+     with integer division.
+   - `dumb_pic.c`: float scalers → x1000 fixed-point integers with +500
+     rounding (matches the upstream `* scaler + .5` then truncate).
+3. **libc printf gaps** (NEWOS libc printf is tiny: no widths/precision):
+   - `dumb_input.c`: `printf("%.*s", ...)` pagination → `fwrite`.
+   - `dumb_output.c`: `%02d` line numbers → manual two-digit print.
+   - `dumb_input.c`: `sprintf(prompt, ...)` → `snprintf` with `sizeof`.
+4. **Compiler strictness** (`-Wall -Wextra -Werror`):
+   - Unused-parameter no-op stubs and `os_restart_game`/`os_read_line`
+     etc. get `(void)x` casts.
+   - `quetzal.c`: the two intentional upstream fall-throughs annotated
+     with `/* fall through */`.
+   - `dumb_output.c`: dropped redundant `<= ZC_LATIN1_MAX` compares
+     (tautology for `unsigned char`, `-Wtype-limits`).
+   - `fastmem.c`: dropped dead `pc/release/addr/i` declarations in the
+     `z_save`/`z_restore` non-quetsal branches (never read, flagged by
+     `-Wunused-variable`).
+   - `dumb_input.c`: `time_t start_time = 0;` initializer (only read
+     when `timeout != 0`, set on the same path).
+   - String/pointer casts: `strlen((const char *)...)`,
+     `strcat((char *)buf, ...)` for `zchar` vs `char` signedness.
+5. **Upstream bug fix** — `dumb_init.c`: `-m` (`do_more_prompts = FALSE`)
+   had a missing `break` and silently fell through into `case 'o'`
+   (object movement). The `break` matches the option documentation.
+6. **Build flags** (root `Makefile`, `FROTZ_CFLAGS`):
+   - `-std=gnu99`: upstream is ANSI C (`typedef int bool` vs C23).
+   - `-fcommon`: upstream 2.44 relies on common-symbol merging for the
+     duplicated `f_setup`/`do_more_prompts` definitions in the dumb
+     driver (gcc < 10 default; the kernel toolchain uses `-fno-common`).
+   - `-Wno-error=unterminated-string-initialization`: upstream
+     intentionally stores exact-6-byte serial numbers in `zbyte serial[6]`
+     (no NUL); reported as a warning, not an error.
+7. **Flat layout** — `dumb_frotz.h` includes `"frotz.h"` instead of
+   `"../common/frotz.h"`.
+
+## Build / test
+
+- `/bin/frotz` is built by the root `Makefile` (`FROTZ_*` block) into
+  `build/userland/frotz.elf`, embedded into the initramfs `/bin` and
+  registered in `kernel/fs/initramfs/initramfs.c` (`DECL_BIN`/`BIN`) and
+  `PROG_NAMES`.
+- `make check-frotz` runs the host functional test
+  (`tools/frotz/check-frotz.sh`): compiles the port units against the
+  host libc and drives `tools/frotz/tests/mini.z3` (banner, one line
+  read, deterministic regeneration). Host libc works because the dumb
+  driver only uses portable stdio, string, malloc, ctype and time.

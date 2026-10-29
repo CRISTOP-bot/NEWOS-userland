@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/include/unistd.h
+ * Description: POSIX-ish facade over NEWOS syscalls. Values match the kernel VFS
+ * Added: 2026-10-17
+ */
 #ifndef NEWOS_LIBC_UNISTD_H
 #define NEWOS_LIBC_UNISTD_H
 

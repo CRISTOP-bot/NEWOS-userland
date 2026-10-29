@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/include/string.h
+ * Description: NEWOS libc: freestanding string/memory (integer only, no locale).
+ * Added: 2026-10-17
+ */
 #ifndef NEWOS_LIBC_STRING_H
 #define NEWOS_LIBC_STRING_H
 
@@ -23,6 +29,14 @@ int strncmp(const char *a, const char *b, size_t n);
 char *strchr(const char *s, int c);
 char *strrchr(const char *s, int c);
 char *strstr(const char *h, const char *n);
+char *strpbrk(const char *s, const char *set);
+size_t strspn(const char *s, const char *set);
+size_t strcspn(const char *s, const char *set);
+char *strdup(const char *s);
+char *strndup(const char *s, size_t max);
+char *strtok(char *s, const char *set);
+int strcasecmp(const char *a, const char *b);
+int strcoll(const char *a, const char *b);
 int atoi(const char *s);
 long atol(const char *s);
 

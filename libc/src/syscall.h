@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/src/syscall.h
+ * Description: Internal raw syscall stubs shared by libc translation units.
+ * Added: 2026-10-17
+ */
 #ifndef NEWOS_LIBC_SRC_SYSCALL_H
 #define NEWOS_LIBC_SRC_SYSCALL_H
 

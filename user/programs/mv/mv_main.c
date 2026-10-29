@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/mv/mv_main.c
+ * Description: mv SRC... DST
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 /* mv SRC... DST

@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/cat/cat_main.c
+ * Description: userland program entry for cat
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 static int dump(int fd, const char *prog)

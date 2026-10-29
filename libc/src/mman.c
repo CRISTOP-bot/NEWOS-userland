@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/src/mman.c
+ * Description: NEWOS libc module
+ * Added: 2026-10-17
+ */
 #include "../include/sys/mman.h"
 #include "../include/errno.h"
 #include "../../abi/syscall_abi.h"

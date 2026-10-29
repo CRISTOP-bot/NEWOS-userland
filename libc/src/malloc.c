@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/src/malloc.c
+ * Description: Free-list allocator backed by the process break. The kernel already
+ * Added: 2026-10-17
+ */
 #include "../include/stdlib.h"
 #include "../include/string.h"
 #include "../include/unistd.h"

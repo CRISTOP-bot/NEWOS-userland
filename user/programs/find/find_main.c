@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/find/find_main.c
+ * Description: userland program entry for find
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 #define FIND_MAX_DEPTH 48

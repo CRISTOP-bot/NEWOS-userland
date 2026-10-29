@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/hello/hello_main.c
+ * Description: NEWOS userspace hello.
+ * Added: 2026-10-17
+ */
 /* NEWOS userspace hello.
  *
  * Freestanding ring-3 program entered through the ELF entry point directly

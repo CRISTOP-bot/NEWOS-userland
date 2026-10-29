@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/init/shell_main.c
+ * Description: nsh: the NEWOS shell (/init, /bin/sh).
+ * Added: 2026-10-17
+ */
 /* nsh: the NEWOS shell (/init, /bin/sh).
  *
  * A real interactive shell, not a demo: UTF-8 line editing (arrows,
@@ -19,6 +25,7 @@
 #define MAX_ARGS 16
 #define MAX_STAGES 8
 #define O_TRUNC NSH_O_TRUNC
+#define O_APPEND NSH_O_APPEND
 
 /* --- history ----------------------------------------------------------- */
 
@@ -90,8 +97,11 @@ static void redraw(void)
         maxdraw = w;
     nputc('\r');
     nputs(prompt);
-    /* Move from line start to the cursor cell. */
-    int target = dwidth(prompt, (int)nstrlen(prompt)) + dwidth(line, pos);
+    /* The pen already sits after the second prompt copy above; moving
+     * only the line-width remainder lands the caret on the cursor cell.
+     * Counting the prompt here as well pushed the caret a full prompt
+     * width into empty space on every console (VGA, serial, fbcon). */
+    int target = dwidth(line, pos);
     for (int i = 0; i < target; i++)
         nputs("\x1B[C");
 }
@@ -484,11 +494,14 @@ static int builtin_help(void)
     nputs("/bin: ls cat echo mkdir rmdir rm mv touch pwd clear uname\n");
     nputs("       hostname whoami id date uptime ps kill sleep free\n");
     nputs("       df wc head grep find sort hello img vid desktop\n");
-    nputs("       about newpkg newfetch kilo nano ltest\n");
+    nputs("       about newpkg newfetch nano tcc busybox\n");
     nputs("GNU tools install under /usr/bin; use /usr/bin/<tool>\n");
+    nputs("BusyBox: 'busybox --list'; unshadowed applet names run automatically\n");
     nputs("Images: img /etc/splash.bmp  |  img /etc/test.ppm\n");
-    nputs("nano/kilo: terminal text editor (Ctrl+S saves, Ctrl+Q quits)\n");
+    nputs("nano: GNU nano (Ctrl+O save, Ctrl+X exit)\n");
+    nputs("tcc: Tiny C Compiler; 'tcc -c file.c -o file.o' needs no SDK\n");
     nputs("pipes: cmd1 | cmd2    redirect: cmd > f, cmd >> f, cmd < f\n");
+    nputs("GUI: boot with gui=1, choose the GUI Limine entry, or run desktop\n");
     nputs("boot: init=<path> gui=0/1 headless=1 test_mode=1\n");
     nputs("keys: Ctrl+A/E line ends, Ctrl+U/W/K cut, Ctrl+Y/V paste,\n");
     nputs("      Ctrl+C cancel, Ctrl+D exit, Ctrl+L clear\n");
@@ -532,6 +545,67 @@ static void show_motd(void)
     sys_close((int)fd);
 }
 
+static int text_has(const char *haystack, const char *needle)
+{
+    u64 n = nstrlen(needle);
+
+    if (!n)
+        return 1;
+    for (; *haystack; haystack++) {
+        if (nstrncmp(haystack, needle, n) == 0)
+            return 1;
+    }
+    return 0;
+}
+
+static int boot_flag(const char *flag)
+{
+    char buf[512];
+    long fd = sys_open("/proc/cmdline", O_READ);
+    long n;
+
+    if (fd < 0)
+        return 0;
+    n = sys_read((int)fd, buf, sizeof(buf) - 1);
+    sys_close((int)fd);
+    if (n <= 0)
+        return 0;
+    buf[n] = '\0';
+    return text_has(buf, flag);
+}
+
+/* The kernel always enters this shell. On a framebuffer boot carrying
+ * `gui=1`, the boot shell (argv[1] == "--session") opens the graphical
+ * session as a child and returns to the prompt when the desktop closes
+ * (Ctrl+Q or the last window). Launches made later from the shell have no
+ * session flag, so nested `sh` instances stay plain shells. */
+static void start_gui_session(void)
+{
+    struct nsh_fbinfo fi;
+    char *argv[1];
+    long pid;
+
+    if (!boot_flag("gui=1") || boot_flag("test_mode=1") ||
+        boot_flag("headless=1"))
+        return;
+    if (sys_fbinfo(&fi) != 0 || !fi.present) {
+        nputs("gui: no framebuffer; staying in nsh\n");
+        return;
+    }
+    argv[0] = (char *)"/bin/desktop";
+    nputs("gui: starting /bin/desktop (Ctrl+Q returns to nsh)\n");
+    pid = sys_spawn2("/bin/desktop", argv, 1);
+    if (pid < 0) {
+        nputs("gui: desktop unavailable; staying in nsh\n");
+        return;
+    }
+    (void)sys_waitpid((pid_t)pid);
+    /* fbcon and the compositor share the panel; start the text session on a
+     * clean screen with a fresh cursor after the compositor's last frame. */
+    nputs("\x1B[2J\x1B[H");
+    nputs("gui: desktop closed; back to nsh\n");
+}
+
 static int is_builtin_name(const char *s)
 {
     return nstrcmp(s, "cd") == 0 || nstrcmp(s, "exit") == 0 ||
@@ -548,7 +622,10 @@ static long spawn_path(const char *path, char **argv, int argc,
     return sys_spawn3(path, argv, argc, fdin, fdout);
 }
 
-/* Bare commands search native tools first, then installed GNU tools. */
+/* Bare commands search native tools first, then installed GNU tools, then
+ * BusyBox.  BusyBox's `--install` wants symlinks, which the VFS does not
+ * provide, so nsh invokes the multi-call binary as `busybox <applet>` for
+ * any name that is not a native or GNU command. */
 static long spawn_bin(char **argv, int argc, int fdin, int fdout)
 {
     char path[256];
@@ -571,9 +648,25 @@ static long spawn_bin(char **argv, int argc, int fdin, int fdout)
     nstrcpy(path, "/usr/bin/");
     nstrcat(path, name);
     pid = spawn_path(path, argv, argc, fdin, fdout);
-    if (pid < 0)
-        putf("nsh: %s: command not found\n", name);
-    return pid;
+    if (pid >= 0)
+        return pid;
+
+    /* Keep the fallback bounded: nsh has a small command-line limit, and a
+     * fixed array avoids allocation in this path. */
+    if (argc < 16) {
+        char *bb_argv[18];
+        int n = 0;
+        bb_argv[n++] = (char *)"busybox";
+        bb_argv[n++] = (char *)name;
+        for (int i = 1; i < argc; i++)
+            bb_argv[n++] = argv[i];
+        bb_argv[n] = (char *)0;
+        pid = spawn_path("/bin/busybox", bb_argv, n, fdin, fdout);
+        if (pid >= 0)
+            return pid;
+    }
+    putf("nsh: %s: command not found\n", name);
+    return -1;
 }
 
 static int wait_rc(long pid)
@@ -677,7 +770,11 @@ static void run_pipeline(char *args[], int n)
         }
     }
     if (out_path) {
-        out_fd = (int)sys_open(out_path, O_WRITE | O_CREATE | O_TRUNC);
+        /* `>>` must preserve the existing contents. Opening with O_TRUNC
+         * (as `>` needs) emptied the file first, so the lseek below then
+         * seeked to offset 0 and appended text replaced everything. */
+        int oflags = O_WRITE | O_CREATE | (append ? O_APPEND : O_TRUNC);
+        out_fd = (int)sys_open(out_path, oflags);
         if (out_fd < 0) {
             putf("nsh: %s: cannot open for writing\n", out_path);
             if (in_fd >= 0)
@@ -852,8 +949,7 @@ static int run_script(const char *path)
 
 int main(int argc, char **argv)
 {
-    (void)argc;
-    (void)argv;
+    int boot_session = argc > 1 && nstrcmp(argv[1], "--session") == 0;
 
     /* A boot script configures the session and stays out of the way: end it
      * with `exit` to hand control back to the kernel (what a non-interactive
@@ -863,6 +959,8 @@ int main(int argc, char **argv)
 
     show_motd();
     nputs("Type 'help' for commands.\n");
+    if (boot_session)
+        start_gui_session();
 
     for (;;) {
         int r = read_line();

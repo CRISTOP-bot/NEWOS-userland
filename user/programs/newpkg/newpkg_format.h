@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/newpkg/newpkg_format.h
+ * Description: newpkg_format.h: native NEWOS `.new` package format (spec v1).
+ * Added: 2026-10-17
+ */
 /* newpkg_format.h: native NEWOS `.new` package format (spec v1).
  *
  * A `.new` file is a deterministic, verifiable container (NOT a renamed

@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/mkdir/mkdir_main.c
+ * Description: mkdir [-p] dir... (-p builds missing parents like the real one).
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 /* mkdir [-p] dir... (-p builds missing parents like the real one). */

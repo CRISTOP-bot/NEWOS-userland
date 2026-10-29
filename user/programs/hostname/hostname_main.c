@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/hostname/hostname_main.c
+ * Description: Replace /etc/hostname (no truncate syscall: rewrite the file).
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 static int show(void)

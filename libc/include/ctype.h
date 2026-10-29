@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/include/ctype.h
+ * Description: Plain-C ctype (ASCII only, no locale, no tables needed).
+ * Added: 2026-10-17
+ */
 #ifndef NEWOS_LIBC_CTYPE_H
 #define NEWOS_LIBC_CTYPE_H
 
@@ -22,6 +28,12 @@ static inline int isxdigit(int c)
     return isdigit(c) || (c >= 'a' && c <= 'f') ||
            (c >= 'A' && c <= 'F');
 }
+static inline int isgraph(int c) { return c > 0x20 && c < 0x7F; }
+static inline int ispunct(int c)
+{
+    return isgraph(c) && !isalnum(c);
+}
+static inline int isblank(int c) { return c == ' ' || c == '\t'; }
 static inline int toupper(int c)
 {
     return islower(c) ? c - ('a' - 'A') : c;

@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/src/termios.c
+ * Description: console is already raw
+ * Added: 2026-10-17
+ */
 #include "../include/termios.h"
 
 int tcgetattr(int fd, struct termios *t)

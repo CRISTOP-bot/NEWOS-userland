@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/id/id_main.c
+ * Description: Prints uid/gid parsed from the first /etc/passwd entry
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 /* Prints uid/gid parsed from the first /etc/passwd entry

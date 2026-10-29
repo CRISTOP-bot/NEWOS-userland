@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/ls/ls_main.c
+ * Description: Sort by name (insertion sort, few entries).
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 static void perms(u32 mode)

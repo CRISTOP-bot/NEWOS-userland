@@ -1,4 +1,11 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/src/string.c
+ * Description: NEWOS libc module
+ * Added: 2026-10-17
+ */
 #include "../include/string.h"
+#include "../include/stdlib.h"
 
 void *memcpy(void *d, const void *s, size_t n)
 {
@@ -193,4 +200,118 @@ char *strstr(const char *h, const char *n)
         h++;
     }
     return NULL;
+}
+
+char *strdup(const char *s)
+{
+    size_t n;
+    char *d;
+    if (!s)
+        return NULL;
+    n = strlen(s) + 1;
+    d = (char *)malloc(n);
+    if (d)
+        memcpy(d, s, n);
+    return d;
+}
+
+char *strndup(const char *s, size_t max)
+{
+    size_t n = strnlen(s, max);
+    char *d = (char *)malloc(n + 1);
+    if (d) {
+        memcpy(d, s, n);
+        d[n] = '\0';
+    }
+    return d;
+}
+
+char *strpbrk(const char *s, const char *set)
+{
+    if (!s || !set)
+        return NULL;
+    while (*s) {
+        const char *p = set;
+        while (*p) {
+            if (*s == *p)
+                return (char *)(unsigned long)s;
+            p++;
+        }
+        s++;
+    }
+    return NULL;
+}
+
+size_t strspn(const char *s, const char *set)
+{
+    size_t n = 0;
+    while (s[n]) {
+        const char *p = set;
+        int hit = 0;
+        while (*p) {
+            if (s[n] == *p) {
+                hit = 1;
+                break;
+            }
+            p++;
+        }
+        if (!hit)
+            break;
+        n++;
+    }
+    return n;
+}
+
+size_t strcspn(const char *s, const char *set)
+{
+    size_t n = 0;
+    while (s[n]) {
+        const char *p = set;
+        while (*p && *p != s[n])
+            p++;
+        if (*p)
+            break;
+        n++;
+    }
+    return n;
+}
+
+/* Single-token strtok: the POSIX state lives in one static pointer, which is
+ * all a single-threaded process needs. */
+static char *strtok_last;
+
+char *strtok(char *s, const char *set)
+{
+    char *start = s ? s : strtok_last;
+    char *end;
+    if (!start)
+        return NULL;
+    start += strspn(start, set);
+    if (!*start) {
+        strtok_last = NULL;
+        return NULL;
+    }
+    end = start + strcspn(start, set);
+    strtok_last = *end ? end + 1 : NULL;
+    *end = '\0';
+    return start;
+}
+
+int strcasecmp(const char *a, const char *b)
+{
+    while (*a && *b) {
+        int ca = (*a >= 'A' && *a <= 'Z') ? *a + ('a' - 'A') : *a;
+        int cb = (*b >= 'A' && *b <= 'Z') ? *b + ('a' - 'A') : *b;
+        if (ca != cb)
+            return ca - cb;
+        a++;
+        b++;
+    }
+    return (unsigned char)*a - (unsigned char)*b;
+}
+
+/* The C locale has no collation table: comparison is by byte value. */
+int strcoll(const char *a, const char *b)
+{
+    return strcmp(a, b);
 }

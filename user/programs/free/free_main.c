@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/free/free_main.c
+ * Description: /proc may be unavailable in a future reduced environment; the
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 int main(int argc, char **argv)

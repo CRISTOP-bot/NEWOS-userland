@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/whoami/whoami_main.c
+ * Description: Prints the session owner from /etc/passwd (first entry). The system
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 /* Prints the session owner from /etc/passwd (first entry). The system

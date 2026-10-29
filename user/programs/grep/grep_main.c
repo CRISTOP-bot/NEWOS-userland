@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/grep/grep_main.c
+ * Description: Read one line (NUL-terminated, without newline). Returns length, 0 at
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 static int match_at(const char *line, const char *pat, int icase)

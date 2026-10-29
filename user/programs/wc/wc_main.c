@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/wc/wc_main.c
+ * Description: userland program entry for wc
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 static int count_fd(int fd, int show_l, int show_w, int show_c,

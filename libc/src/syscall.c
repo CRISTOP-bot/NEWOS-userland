@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/src/syscall.c
+ * Description: NEWOS libc module
+ * Added: 2026-10-17
+ */
 #include "syscall.h"
 
 long libc_sys0(long nr)

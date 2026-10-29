@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/include/termios.h
+ * Description: The NEWOS console is already a raw byte stream (no kernel echo or
+ * Added: 2026-10-17
+ */
 #ifndef NEWOS_LIBC_TERMIOS_H
 #define NEWOS_LIBC_TERMIOS_H
 

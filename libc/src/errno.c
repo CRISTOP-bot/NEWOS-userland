@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/src/errno.c
+ * Description: Newlib's math library obtains errno through this accessor. NEWOS currently
+ * Added: 2026-10-17
+ */
 #include "../include/errno.h"
 
 int errno;

@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/kill/kill_main.c
+ * Description: -9 accepted (every kill here is SIGKILL-strength)
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 int main(int argc, char **argv)

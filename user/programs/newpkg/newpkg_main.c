@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/newpkg/newpkg_main.c
+ * Description: newpkg: native NEWOS package manager for `.new` files.
+ * Added: 2026-10-17
+ */
 /* newpkg: native NEWOS package manager for `.new` files.
  *
  * NEWOS 0.3.0-gui. Userspace only (the kernel provides VFS/process).
@@ -674,6 +680,18 @@ static int cmd_install(const char *path, int force)
     if (check_deps(name) != 0) {
         sys_close((int)fd);
         return 1;
+    }
+    /* /etc/nsh.rc runs on every shell.  Reinstalling an unchanged package
+     * would rewrite dozens of files and make every new terminal sluggish;
+     * --force remains the explicit repair/overwrite path. */
+    if (!force) {
+        char installed[NEWPKG_VER_MAX];
+        if (db_read_key(name, "version", installed, sizeof(installed)) == 0 &&
+            nstrcmp(installed, ver) == 0) {
+            putf("install: %s %s: already installed\n", name, ver);
+            sys_close((int)fd);
+            return 0;
+        }
     }
     /* Conflict scan before touching anything. */
     for (k = 0; k < g_nfiles; k++) {

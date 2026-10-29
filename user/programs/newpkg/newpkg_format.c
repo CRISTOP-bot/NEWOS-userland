@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/newpkg/newpkg_format.c
+ * Description: newpkg_format.c: portable implementation of the `.new` spec v1.
+ * Added: 2026-10-17
+ */
 /* newpkg_format.c: portable implementation of the `.new` spec v1.
  *
  * Pure memory operations only (no syscalls, no libc, no FPU) so this file

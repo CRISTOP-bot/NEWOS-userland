@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/img/img_main.c
+ * Description: img: show a picture on the Limine framebuffer.
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 /* img: show a picture on the Limine framebuffer.
@@ -5,13 +11,13 @@
  * Supported formats (decoded natively, no external libraries):
  *   BMP  - uncompressed 24/32-bit Windows bitmaps
  *   PPM  - binary P6 portable pixmaps ("P6 <w> <h> <255>\n" + RGB bytes)
- * Usage: img <file>      (any key returns to the shell)
+ * Usage: img <file> [--no-wait]
  *
+ * Without --no-wait a key returns to the shell; the desktop passes
+ * --no-wait because it owns the framebuffer and has no visible prompt.
  * JPEG/PNG are refused with a clear message: they need an inflate/IDCT
- * codec plus a userspace heap and FPU codegen, none of which exists yet
- * (userland builds -mgeneral-regs-only, nshlib has no malloc). The
- * documented path is vendoring stb_image once those land; the BMP/PPM
- * path here already proves file -> pixels -> panel end to end.
+ * codec that is not vendored yet. The BMP/PPM path here already proves
+ * file -> pixels -> panel end to end.
  */
 
 #define IMG_MAX_FILE (4u * 1024u * 1024u)
@@ -187,12 +193,20 @@ int main(int argc, char **argv)
     struct bmp_desc bmp;
     struct ppm_desc ppm;
     int is_bmp = 0;
+    int no_wait = 0;
     long fd, n;
     u64 w, h, x0, y0, y;
 
-    if (argc != 2) {
-        nputs("usage: img <file.bmp|file.ppm>\n");
+    if (argc != 2 && argc != 3) {
+        nputs("usage: img <file.bmp|file.ppm> [--no-wait]\n");
         return 1;
+    }
+    if (argc == 3) {
+        if (nstrcmp(argv[2], "--no-wait") != 0) {
+            nputs("usage: img <file.bmp|file.ppm> [--no-wait]\n");
+            return 1;
+        }
+        no_wait = 1;
     }
     if (sys_fbinfo(&fi) != 0 || !fi.present) {
         nputs("img: no framebuffer (boot the Limine ISO for graphics)\n");
@@ -227,10 +241,10 @@ int main(int argc, char **argv)
         w = ppm.w;
         h = ppm.h;
     } else if (n >= 4 && filebuf[0] == 0xFF && filebuf[1] == 0xD8) {
-        nputs("img: JPEG needs a userspace codec (no FPU/heap yet)\n");
+        nputs("img: JPEG needs a userspace decoder (not implemented)\n");
         return 1;
     } else if (n >= 4 && filebuf[0] == 0x89 && filebuf[1] == 'P') {
-        nputs("img: PNG needs inflate + codec (no heap yet)\n");
+        nputs("img: PNG needs inflate + decoder (not implemented)\n");
         return 1;
     } else {
         fputf(1, "img: %s: unsupported format (BMP/PPM only)\n", argv[1]);
@@ -269,10 +283,12 @@ int main(int argc, char **argv)
         y += band;
     }
 
-    nputs("img: press any key\n");
-    {
-        char c;
-        sys_read(0, &c, 1);
+    if (!no_wait) {
+        nputs("img: press any key\n");
+        {
+            char c;
+            sys_read(0, &c, 1);
+        }
     }
     return 0;
 }

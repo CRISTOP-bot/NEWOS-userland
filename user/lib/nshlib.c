@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/lib/nshlib.c
+ * Description: nshlib implementation: syscall stubs + string/output helpers.
+ * Added: 2026-10-17
+ */
 /* nshlib implementation: syscall stubs + string/output helpers. */
 
 #include "nshlib.h"
@@ -236,6 +242,21 @@ long sys_lseek(int fd, long off, int whence)
 long sys_mouse_get(struct nsh_mouse *m)
 {
     return SYSC1(SYS_MOUSE_GET, m);
+}
+
+long sys_kbd_grab(int on)
+{
+    return SYSC1(SYS_KBD_GRAB, on);
+}
+
+long sys_kbd_read(void *buf, u64 len)
+{
+    return SYSC2(SYS_KBD_READ, buf, len);
+}
+
+long sys_console_gui(int on)
+{
+    return SYSC1(SYS_CONSOLE_GUI, on);
 }
 
 long sys_pipe(int fds[2])

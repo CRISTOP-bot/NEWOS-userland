@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/newfetch/newfetch_main.c
+ * Description: newfetch: fastfetch-style system overview. The logo is static art;
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 /* newfetch: fastfetch-style system overview. The logo is static art;
@@ -63,6 +69,9 @@ int main(int argc, char **argv)
 
     (void)argc;
     (void)argv;
+    /* The kernel logs each spawn before user code runs; clear it so the
+     * fixed 14-row logo is not clipped by that line. */
+    nputs("\x1B[2J\x1B[H");
     if (sys_uname(&u) != 0)
         return fail("newfetch", "uname failed");
     if (sys_sysinfo(&si) != 0)

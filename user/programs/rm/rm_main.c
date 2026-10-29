@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/rm/rm_main.c
+ * Description: rm [-r] path... Without -r, directories are refused like real rm;
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 /* rm [-r] path... Without -r, directories are refused like real rm;

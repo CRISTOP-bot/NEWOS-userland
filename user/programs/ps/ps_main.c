@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/ps/ps_main.c
+ * Description: userland program entry for ps
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 static const char *state_name(long s)

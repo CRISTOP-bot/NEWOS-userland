@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/include/sys/types.h
+ * Description: A bare handful of POSIX types ports actually use.
+ * Added: 2026-10-17
+ */
 #ifndef NEWOS_LIBC_SYS_TYPES_H
 #define NEWOS_LIBC_SYS_TYPES_H
 

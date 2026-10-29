@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/include/fcntl.h
+ * Description: POSIX open() flags: Linux x86_64 values, passed straight to the kernel
+ * Added: 2026-10-17
+ */
 #ifndef NEWOS_LIBC_FCNTL_H
 #define NEWOS_LIBC_FCNTL_H
 

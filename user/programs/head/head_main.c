@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/user/programs/head/head_main.c
+ * Description: userland program entry for head
+ * Added: 2026-10-17
+ */
 #include "../../lib/nshlib.h"
 
 static long head_fd(int fd, long lines)

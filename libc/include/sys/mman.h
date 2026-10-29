@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/include/sys/mman.h
+ * Description: NEWOS libc interface
+ * Added: 2026-10-17
+ */
 #ifndef NEWOS_LIBC_SYS_MMAN_H
 #define NEWOS_LIBC_SYS_MMAN_H
 

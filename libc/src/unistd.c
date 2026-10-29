@@ -1,3 +1,9 @@
+/*
+ * Maintainer: Cristopher Borjas <borjascristopher88@gmail.com>
+ * Source: userland/libc/src/unistd.c
+ * Description: The kernel speaks Linux O_* flags directly (it translates them to
+ * Added: 2026-10-17
+ */
 #include "../include/unistd.h"
 #include "../include/fcntl.h"
 #include "../../abi/syscall_abi.h"
