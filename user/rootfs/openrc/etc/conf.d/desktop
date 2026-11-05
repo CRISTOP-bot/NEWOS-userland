@@ -1,6 +1,5 @@
 # /etc/conf.d/desktop - graphical session parameters (KEY=VALUE).
 # Read by /etc/init.d/desktop through the $session_program substitution.
-# /bin/desktop is the NEWOS-native Win95 session: it sizes its canvas to the
-# framebuffer the bootloader picked, so it runs at the monitor's native
-# resolution. The classic VOXEL desktop stays installed at /bin/voxel.
-session_program="/bin/desktop"
+# VOXEL is now the default graphical session (the legacy Win95 /bin/desktop
+# has been removed). It runs at the bootloader's native framebuffer resolution.
+session_program="/bin/voxel"
