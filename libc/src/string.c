@@ -310,6 +310,21 @@ int strcasecmp(const char *a, const char *b)
     return (unsigned char)*a - (unsigned char)*b;
 }
 
+int strncasecmp(const char *a, const char *b, size_t n)
+{
+    while (n--) {
+        int ca = (*a >= 'A' && *a <= 'Z') ? *a + ('a' - 'A') : *a;
+        int cb = (*b >= 'A' && *b <= 'Z') ? *b + ('a' - 'A') : *b;
+        if (ca != cb)
+            return ca - cb;
+        if (!ca)            /* both strings ended: nothing left to compare */
+            return 0;
+        a++;
+        b++;
+    }
+    return 0;
+}
+
 /* The C locale has no collation table: comparison is by byte value. */
 int strcoll(const char *a, const char *b)
 {

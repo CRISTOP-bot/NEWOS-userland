@@ -8,7 +8,10 @@
 
 #include "desktop.h"
 
-u32 canvas[DESK_MAX_W * DESK_MAX_H];
+/* Scene buffer and compositor staging buffer; sized to the framebuffer in
+ * desktop_main() once the boot mode is known. */
+u32 *canvas;
+u32 *blit_buf;
 
 /* One buffer-backed drawing surface and the window button set. */
 Surface g_surface;

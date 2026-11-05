@@ -1,0 +1,72 @@
+NEWOS DOOM port - 0002-32-bit-assumptions-in-wad-loading
+
+Reason: the engine's WAD and level-loading data structures assume 32-bit
+pointers in two distinct ways, and both corrupt the game silently on
+x86_64 instead of failing.
+
+r_data.c (maptexture_t): the on-disk texture directory header carries an
+obsolete field that upstream typed as void**, i.e. 4 bytes on the i386
+the WAD was written for. Typing it as a pointer here grows the parsed
+header from 22 to 26 bytes and shifts the patch array into the following
+entry, so every texture on every map is read as garbage. It is kept
+32-bit because it is an on-disk layout, not a runtime pointer.
+
+r_data.c / p_setup.c (slot arrays): several Z_Malloc() calls size an
+array of pointers as "count*4", which is only correct while a pointer is
+4 bytes. The allocation succeeds, the slots overlap, and the first
+dereference of a truncated pointer faults. Sized by element instead;
+arrays that really do hold ints keep their original "count*4".
+
+Apply from inside the extracted linuxdoom-1.10/ directory: patch -p1 < this-file
+
+--- a/r_data.c
++++ b/r_data.c
+@@ -87,7 +87,13 @@
+     boolean		masked;	
+     short		width;
+     short		height;
+-    void		**columndirectory;	// OBSOLETE
++    /* NEWOS port (x86_64): upstream typed this obsolete field as a pointer,
++     * which is 4 bytes on the i386 the WAD texture directory was written for
++     * and 8 bytes here. That grew the header from 22 to 26 bytes and shifted
++     * patches[] four bytes into the following entry, so every map texture
++     * parsed as garbage. Kept 32-bit to preserve the on-disk layout; the
++     * engine never reads the field. */
++    int			columndirectory;	// OBSOLETE
+     short		patchcount;
+     mappatch_t	patches[1];
+ } maptexture_t;
+@@ -479,10 +485,16 @@
+     }
+     numtextures = numtextures1 + numtextures2;
+ 	
+-    textures = Z_Malloc (numtextures*4, PU_STATIC, 0);
+-    texturecolumnlump = Z_Malloc (numtextures*4, PU_STATIC, 0);
+-    texturecolumnofs = Z_Malloc (numtextures*4, PU_STATIC, 0);
+-    texturecomposite = Z_Malloc (numtextures*4, PU_STATIC, 0);
++    // NEWOS port (x86_64): the first four arrays hold *pointers* per texture.
++    // Upstream sized every one of them as numtextures*4, which is only right
++    // when a pointer is 4 bytes; here it silently truncated the slot array,
++    // so textures[i]/texturecolumn*[i] read back as garbage addresses (the
++    // high half of the slot belongs to the next entry). Sized by element now;
++    // the int arrays below keep their 4-byte slots.
++    textures = Z_Malloc (numtextures*sizeof(*textures), PU_STATIC, 0);
++    texturecolumnlump = Z_Malloc (numtextures*sizeof(*texturecolumnlump), PU_STATIC, 0);
++    texturecolumnofs = Z_Malloc (numtextures*sizeof(*texturecolumnofs), PU_STATIC, 0);
++    texturecomposite = Z_Malloc (numtextures*sizeof(*texturecomposite), PU_STATIC, 0);
+     texturecompositesize = Z_Malloc (numtextures*4, PU_STATIC, 0);
+     texturewidthmask = Z_Malloc (numtextures*4, PU_STATIC, 0);
+     textureheight = Z_Malloc (numtextures*4, PU_STATIC, 0);
+--- a/p_setup.c
++++ b/p_setup.c
+@@ -533,7 +533,9 @@
+     }
+ 	
+     // build line tables for each sector	
+-    linebuffer = Z_Malloc (total*4, PU_LEVEL, 0);
++    // NEWOS port (x86_64): this table stores line_t* pointers, one slot per
++    // line reference, so the upstream "total*4" only fits a 32-bit pointer.
++    linebuffer = Z_Malloc (total*sizeof(*linebuffer), PU_LEVEL, 0);
+     sector = sectors;
+     for (i=0 ; i<numsectors ; i++, sector++)
+     {

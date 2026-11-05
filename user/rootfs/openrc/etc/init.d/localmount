@@ -1,0 +1,25 @@
+#!/bin/sh
+# /etc/init.d/localmount: verify the writable runtime tree.
+# NEWOS mounts the tmpfs root and the read-only /proc and /sys inside the
+# kernel, so this service owns the userspace half of the mount contract:
+# proof that the runtime directories are writable before anything logs
+# into them. openrc-init creates /run/openrc; the checks below touch and
+# remove a probe file in each writable location.
+
+depend() {
+    before bootmisc
+}
+
+start() {
+    touch /run/.localmount
+    rm /run/.localmount
+    touch /tmp/.localmount
+    rm /tmp/.localmount
+    touch /var/tmp/.localmount
+    rm /var/tmp/.localmount
+    touch /var/log/.localmount
+    rm /var/log/.localmount
+}
+
+stop() {
+}

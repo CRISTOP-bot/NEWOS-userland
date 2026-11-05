@@ -19,6 +19,7 @@
  */
 
 #include "desktop.h"
+#include <stdlib.h>
 
 int main(int argc, char **argv)
 {
@@ -41,8 +42,20 @@ int main(int argc, char **argv)
         nputs("desktop: framebuffer geometry is too small\n");
         return 1;
     }
-    if (fi.width > DESK_MAX_W || fi.height > DESK_MAX_H) {
-        nputs("desktop: framebuffer exceeds the 2048x1200 canvas limit\n");
+
+    /* The scene buffer tracks the mode the bootloader picked, so the desktop
+     * renders at the monitor's native resolution rather than a compiled-in
+     * ceiling. Both buffers grow the process break (SYS_BRK) on demand, and
+     * every pixel is painted by the wallpaper pass before the first upload,
+     * so the uninitialised heap contents are never shown. */
+    g_pw = fi.width;
+    g_ph = fi.height;
+    canvas = malloc((size_t)g_pw * (size_t)g_ph * sizeof(*canvas));
+    blit_buf = malloc((size_t)g_pw * 16u * sizeof(*blit_buf));
+    if (!canvas || !blit_buf) {
+        nputs("desktop: out of memory allocating the framebuffer canvas\n");
+        free(canvas);
+        free(blit_buf);
         return 1;
     }
     if (sys_kbd_grab(1) != 0)
@@ -50,9 +63,11 @@ int main(int argc, char **argv)
     if (sys_console_gui(1) != 0)
         nputs("desktop: framebuffer console is owned by another process\n");
 
-    g_pw = fi.width;
-    g_ph = fi.height;
     surface_init(&g_surface, canvas, (int)g_pw, (int)g_ph);
+    /* The plate is read once, before the first paint, so the opening frame
+     * already shows it; if it is missing or invalid the shell keeps its
+     * procedural gradient. */
+    wallpaper_load();
     ui_button_init(&about_theme_btn, (SurfaceRect){0, 0, 82, 22}, "THEME");
     ui_button_init(&about_help_btn, (SurfaceRect){0, 0, 70, 22}, "HELP");
     ui_button_init(&about_term_btn, (SurfaceRect){0, 0, 54, 22}, "SH");
@@ -244,6 +259,9 @@ int main(int argc, char **argv)
     }
     (void)sys_kbd_grab(0);
     (void)sys_console_gui(0);
+    free(canvas);
+    free(blit_buf);
+    wallpaper_free();
     nputs("\x1B[2J\x1B[H");
     nputs("desktop: done\n");
     return 0;

@@ -1,0 +1,50 @@
+NEWOS DOOM port - 0003-null-terminate-sprnames
+
+Reason: R_InitSpriteDefs() counts the sprite name table by walking it
+until a NULL entry, but info.c declares exactly NUMSPRITES entries with
+no terminator. On the i386 original the walk happened to hit a zero byte
+just past the array; on x86_64 it runs off the end and the resulting
+namelist[] holds pointers such as 0x1, faulting inside
+R_InstallSpriteLump. The array gains an explicit NULL slot (info.h
+declares it with the extra element so the NUMSPRITES indexing keeps
+working).
+
+Apply from inside the extracted linuxdoom-1.10/ directory: patch -p1 < this-file
+
+--- a/info.c
++++ b/info.c
+@@ -37,7 +37,12 @@
+ 
+ #include "p_mobj.h"
+ 
+-char *sprnames[NUMSPRITES] = {
++// NEWOS port: R_InitSpriteDefs() counts the names by scanning for a NULL, and
++// upstream terminated the array only by its NUMSPRITES bound. That happens to
++// stop on i386 because the next .data word is zero; on x86_64 the scan walks
++// 1112 bytes of pointers into live symbols, numsprites comes out huge and the
++// first sprite name dereference faults. Terminated explicitly instead.
++char *sprnames[NUMSPRITES+1] = {
+     "TROO","SHTG","PUNG","PISG","PISF","SHTF","SHT2","CHGG","CHGF","MISG",
+     "MISF","SAWG","PLSG","PLSF","BFGG","BFGF","BLUD","PUFF","BAL1","BAL2",
+     "PLSS","PLSE","MISL","BFS1","BFE1","BFE2","TFOG","IFOG","PLAY","POSS",
+@@ -51,7 +56,8 @@
+     "POL3","POL1","POL6","GOR2","GOR3","GOR4","GOR5","SMIT","COL1","COL2",
+     "COL3","COL4","CAND","CBRA","COL6","TRE1","TRE2","ELEC","CEYE","FSKU",
+     "COL5","TBLU","TGRN","TRED","SMBT","SMGT","SMRT","HDB1","HDB2","HDB3",
+-    "HDB4","HDB5","HDB6","POB1","POB2","BRS1","TLMP","TLP2"
++    "HDB4","HDB5","HDB6","POB1","POB2","BRS1","TLMP","TLP2",
++    NULL
+ };
+ 
+ 
+--- a/info.h
++++ b/info.h
+@@ -1156,7 +1156,7 @@
+ } state_t;
+ 
+ extern state_t	states[NUMSTATES];
+-extern char *sprnames[NUMSPRITES];
++extern char *sprnames[NUMSPRITES+1];	// NEWOS port: NULL terminated, see info.c
+ 
+ 
+ 

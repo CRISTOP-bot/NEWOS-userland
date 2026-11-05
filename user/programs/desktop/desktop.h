@@ -23,8 +23,6 @@
 #define TASKBAR_H     40
 #define TITLE_H       34
 #define MAX_W         5
-#define DESK_MAX_W    2048u
-#define DESK_MAX_H    1200u
 #define BIN_MAX       64
 #define LOG_LINES     12
 
@@ -64,7 +62,12 @@ extern int g_theme;
 
 /* --- shared state ----------------------------------------------------- */
 
-extern u32 canvas[DESK_MAX_W * DESK_MAX_H];
+/* Scene buffer and compositor staging buffer. Both are allocated at startup
+ * to the exact size of the reported framebuffer, so the desktop renders at
+ * whatever mode the bootloader picked (the monitor's native mode on real
+ * hardware) instead of a compiled-in ceiling. */
+extern u32 *canvas;
+extern u32 *blit_buf;
 extern Surface g_surface;
 extern UiButton about_theme_btn, about_help_btn, about_term_btn;
 
@@ -190,6 +193,13 @@ void toast_rect(long *x, long *y, long *w, long *h);
 void damage_toast(void);
 void draw_wallpaper_rect(SurfaceRect r);
 void draw_wallpaper(void);
+
+/* --- wallpaper plate (/etc/wallpaper.bmp) ------------------------------ */
+
+void wallpaper_load(void);
+void wallpaper_free(void);
+int wallpaper_active(void);
+u32 wallpaper_pixel(long x, long y);
 void draw_panel(void);
 void draw_taskbar(void);
 void draw_start_menu(void);

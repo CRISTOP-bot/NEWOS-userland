@@ -36,6 +36,7 @@ char *strdup(const char *s);
 char *strndup(const char *s, size_t max);
 char *strtok(char *s, const char *set);
 int strcasecmp(const char *a, const char *b);
+int strncasecmp(const char *a, const char *b, size_t n);
 int strcoll(const char *a, const char *b);
 int atoi(const char *s);
 long atol(const char *s);

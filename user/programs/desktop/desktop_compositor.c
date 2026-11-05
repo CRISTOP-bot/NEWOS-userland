@@ -16,7 +16,6 @@
 
 static SurfaceRect damage_rect;
 static int damage_active;
-static u32 blit_buf[DESK_MAX_W * 16];
 
 /* The cursor is a compositor overlay, never part of `canvas`.  Keeping it
  * out of the scene buffer means an old cursor can never survive a partial

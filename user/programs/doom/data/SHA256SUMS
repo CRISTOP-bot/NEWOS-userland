@@ -1,0 +1,13 @@
+# Verify with: sha256sum -c SHA256SUMS   (from this directory)
+#
+# linuxdoom-1.10.tar.gz is the pristine id Software release (DOOM-master as
+# published under the GPL-2.0 in 1997); the engine sources forked into the
+# parent directory come out of it unmodified except for patches/*.patch.
+#
+# doom1.wad is the shareware DOOM 1.9 IWAD that /bin/doom needs to run. It is
+# redistributable under id Software's shareware licence, reproduced verbatim
+# in doom1.wad.copyright. The build embeds it in the initramfs at
+# /usr/share/doom/doom1.wad.
+99b0efa8a4954a8af0ad79faaf8d8f27277c254b929d110455dafcee4686e4b8  linuxdoom-1.10.tar.gz
+1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771 doom1.wad
+1482321ff0640a41f039d771f7a2abe62b32ff76f6fd458c291cb981df94d083 doom1.wad.copyright

@@ -75,3 +75,14 @@ int open(const char *path, int flags, ...)
     long fd = libc_sys2(SYS_OPEN, (long)path, flags);
     return fd < 0 ? -1 : (int)fd;
 }
+
+int access(const char *path, int mode)
+{
+    long r;
+
+    (void)mode;   /* no permission model: existence is the whole answer */
+    r = libc_sys2(SYS_ACCESS, (long)path, mode);
+    if (r != 0)
+        errno = ENOENT;
+    return r == 0 ? 0 : -1;
+}

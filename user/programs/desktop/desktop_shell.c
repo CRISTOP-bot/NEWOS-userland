@@ -78,6 +78,17 @@ void draw_wallpaper_rect(SurfaceRect r)
     if (r.width <= 0 || r.height <= 0)
         return;
 
+    /* The brand plate wins over the procedural background whenever
+     * /etc/wallpaper.bmp decoded: it is stretched to the panel with
+     * nearest-neighbour sampling, one pixel at a time, so a partial
+     * repaint only pays for the damaged rectangle. */
+    if (wallpaper_active()) {
+        for (y = r.y; y < r.y + r.height; y++)
+            for (x = r.x; x < r.x + r.width; x++)
+                px_set(x, y, wallpaper_pixel(x, y));
+        return;
+    }
+
     for (y = r.y; y < r.y + r.height; y++) {
         u32 t = g_ph > 1 ? (u32)((u64)y * 255u / (g_ph - 1u)) : 0u;
         hline(0, y, (long)g_pw, rgb_lerp(TH.bg0, TH.bg1, t));

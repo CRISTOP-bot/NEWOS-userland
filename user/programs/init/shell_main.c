@@ -42,7 +42,12 @@ static int pos;         /* cursor (byte index) */
 static int maxdraw;     /* widest redraw so far (for stale-char cleanup) */
 static char prompt[300];
 
+/* OpenRC service-script state: set when this shell is invoked as
+ * `/bin/sh /etc/init.d/<svc> <action>` (see run_service_script). */
+static char svc_name[64];           /* "" outside service mode */
+
 static void redraw(void);
+static int exec_line(char *ln);   /* one command line -> shell exit code */
 
 /* Kill-ring clipboard for Ctrl+K/U/W (cut) and Ctrl+Y/V (paste). */
 static char clip[LINE_MAX];
@@ -592,18 +597,18 @@ static void start_gui_session(void)
         nputs("gui: no framebuffer; staying in nsh\n");
         return;
     }
-    argv[0] = (char *)"/bin/desktop";
-    nputs("gui: starting /bin/desktop (Ctrl+Q returns to nsh)\n");
-    pid = sys_spawn2("/bin/desktop", argv, 1);
+    argv[0] = (char *)"/bin/voxel";
+    nputs("gui: starting /bin/voxel (Ctrl+Q returns to nsh)\n");
+    pid = sys_spawn2("/bin/voxel", argv, 1);
     if (pid < 0) {
-        nputs("gui: desktop unavailable; staying in nsh\n");
+        nputs("gui: voxel unavailable; staying in nsh\n");
         return;
     }
     (void)sys_waitpid((pid_t)pid);
     /* fbcon and the compositor share the panel; start the text session on a
      * clean screen with a fresh cursor after the compositor's last frame. */
     nputs("\x1B[2J\x1B[H");
-    nputs("gui: desktop closed; back to nsh\n");
+    nputs("gui: voxel completed; back to nsh\n");
 }
 
 static int is_builtin_name(const char *s)
@@ -646,6 +651,12 @@ static long spawn_bin(char **argv, int argc, int fdin, int fdout)
     if (pid >= 0)
         return pid;
     nstrcpy(path, "/usr/bin/");
+    nstrcat(path, name);
+    pid = spawn_path(path, argv, argc, fdin, fdout);
+    if (pid >= 0)
+        return pid;
+    /* System administration tools ship in /sbin (OpenRC's home upstream). */
+    nstrcpy(path, "/sbin/");
     nstrcat(path, name);
     pid = spawn_path(path, argv, argc, fdin, fdout);
     if (pid >= 0)
@@ -851,18 +862,83 @@ fail:
 
 /* One command line: builtins run here, everything else is spawned. Shared
  * by the interactive loop and the boot script (see run_script). */
-static void exec_line(char *ln)
+/* Append `v` as decimal to `out` (no printf in the freestanding lib). */
+static void append_dec(char *out, long v)
+{
+    char tmp[24];
+    int n = 0;
+    size_t k = nstrlen(out);
+
+    if (v < 0)
+        out[k++] = '-';
+    if (v < 0)
+        v = -v;
+    if (v == 0)
+        tmp[n++] = '0';
+    while (v > 0) {
+        tmp[n++] = (char)('0' + (v % 10));
+        v /= 10;
+    }
+    while (n > 0)
+        out[k++] = tmp[--n];
+    out[k] = '\0';
+}
+
+/* `cmd &` inside a service script: spawn detached and record the pid in
+ * /run/<service>.pid, the NEWOS equivalent of --pidfile. */
+static int run_detached(char **args, int n)
+{
+    long pid = spawn_bin(args, n, -1, -1);
+    char path[96];
+    char body[32];
+
+    if (pid < 0)
+        return 127;
+    if (!*svc_name)
+        return 0;
+    nstrcpy(path, "/run/");
+    nstrcat(path, svc_name);
+    nstrcat(path, ".pid");
+    nstrcpy(body, "");
+    append_dec(body, pid);
+    nstrcat(body, "\n");
+    {
+        int fd = (int)sys_open(path, O_WRITE | O_CREATE | O_TRUNC);
+
+        if (fd >= 0) {
+            sys_write(fd, body, nstrlen(body));
+            sys_close(fd);
+        }
+    }
+    return 0;
+}
+
+/* One command line: builtins run here, everything else is spawned. Shared
+ * by the interactive loop, the boot script (run_script) and the OpenRC
+ * service interpreter (run_service_script). Returns the shell's exit code
+ * for that line (0 for builtins). */
+static int exec_line(char *ln)
 {
     static char *args[MAX_ARGS + 1];
     int n = tokenize(ln, args, MAX_ARGS);
+    int detached = 0;
 
     if (n < 0) {
         nputs("nsh: syntax error: unmatched quote or too many tokens\n");
-        return;
+        return 2;
     }
     if (n == 0)
-        return;
+        return 0;
+    if (n == 1 && !tok_op[0] && nstrcmp(args[0], "&") == 0)
+        return 0;
+    if (n > 1 && !tok_op[n - 1] && nstrcmp(args[n - 1], "&") == 0) {
+        detached = 1;
+        n--;
+    }
     args[n] = 0;
+
+    if (detached)
+        return run_detached(args, n);
 
     int ops = 0;
     for (int i = 0; i < n; i++)
@@ -870,11 +946,12 @@ static void exec_line(char *ln)
             ops = 1;
     if (ops) {
         run_pipeline(args, n);
+        return 0;
     } else if (nstrcmp(args[0], "exit") == 0) {
         nputs("Bye.\n");
         sys_exit(0);
     } else if (nstrcmp(args[0], "cd") == 0) {
-        builtin_cd(n, args);
+        return builtin_cd(n, args);
     } else if (nstrcmp(args[0], "help") == 0) {
         builtin_help();
     } else if (nstrcmp(args[0], "history") == 0) {
@@ -882,8 +959,9 @@ static void exec_line(char *ln)
     } else if (nstrcmp(args[0], "clear") == 0) {
         builtin_clear();
     } else {
-        run_external(args, n);
+        return run_external(args, n);
     }
+    return 0;
 }
 
 /* Execute a file of commands. Returns 0 normally, -1 when `path` is absent
@@ -947,9 +1025,325 @@ static int run_script(const char *path)
     return status;
 }
 
+/* ---- OpenRC service scripts -------------------------------------------
+ * `/bin/sh /etc/init.d/<svc> <action>` runs one function block of an init
+ * script. nsh is the interpreter OpenRC uses for those scripts, so the
+ * supported vocabulary is deliberately the one the shipped scripts need and
+ * nothing more: `name() { <one command per line> }` blocks, KEY=VALUE
+ * option files under /etc/conf.d, `$NAME`/`${NAME}` substitution and the
+ * trailing `&` detach handled by exec_line. Chaining, subshells and test
+ * builtins are out of scope: a script needing them is a script bug here. */
+
+#define SVC_MAX_VARS 32
+#define SVC_MAX_KEY 48
+#define SVC_MAX_VAL 128
+#define SVC_MAX_SRC 16384
+#define SVC_MAX_LINE 256
+#define SVC_MAX_NAME 64
+
+/* svc_name lives with the shell globals: run_detached writes the pidfile
+ * through it. */
+static char s_svc_key[SVC_MAX_VARS][SVC_MAX_KEY];
+static char s_svc_val[SVC_MAX_VARS][SVC_MAX_VAL];
+static int s_svc_nvars;
+
+/* Whole-file read: service scripts and option files are small and the root
+ * filesystem is a tmpfs, so one buffer holds them. */
+static long read_all(const char *path, char *buf, long cap)
+{
+    long fd = sys_open(path, O_READ);
+    long have = 0;
+
+    if (fd < 0)
+        return -1;
+    while (have < cap - 1) {
+        long n = sys_read((int)fd, buf + have, cap - have);
+        if (n <= 0)
+            break;
+        have += n;
+    }
+    sys_close((int)fd);
+    buf[have] = '\0';
+    return have;
+}
+
+static void svc_set(const char *key, const char *val)
+{
+    int slot = -1;
+    long klen = nstrlen(key);
+
+    if (!klen)
+        return;
+    if (klen > SVC_MAX_KEY - 1)
+        klen = SVC_MAX_KEY - 1;
+    for (int i = 0; i < s_svc_nvars; i++)
+        if (nstrncmp(s_svc_key[i], key, (u64)klen) == 0 &&
+            s_svc_key[i][klen] == '\0') {
+            slot = i;
+            break;
+        }
+    if (slot < 0) {
+        if (s_svc_nvars == SVC_MAX_VARS)
+            return;
+        slot = s_svc_nvars++;
+        for (long i = 0; i < klen; i++)
+            s_svc_key[slot][i] = key[i];
+        s_svc_key[slot][klen] = '\0';
+    }
+    long vlen = nstrlen(val);
+
+    if (vlen > SVC_MAX_VAL - 1)
+        vlen = SVC_MAX_VAL - 1;
+    for (long i = 0; i < vlen; i++)
+        s_svc_val[slot][i] = val[i];
+    s_svc_val[slot][vlen] = '\0';
+}
+
+static const char *svc_get(const char *key, long len)
+{
+    for (int i = 0; i < s_svc_nvars; i++)
+        if (nstrncmp(s_svc_key[i], key, (u64)len) == 0 &&
+            s_svc_key[i][len] == '\0')
+            return s_svc_val[i];
+    return 0;
+}
+
+/* KEY=VALUE lines of /etc/conf.d/<svc>; surrounding quotes are stripped.
+ * A missing file is not an error: most services have no options. */
+static void svc_load_conf(const char *svc)
+{
+    static char buf[4096];
+    char path[SVC_MAX_NAME + 16];
+    long n;
+
+    nstrcpy(path, "/etc/conf.d/");
+    nstrcat(path, svc);
+    n = read_all(path, buf, (long)sizeof(buf));
+    if (n <= 0)
+        return;
+
+    char *p = buf;
+    while (*p) {
+        char *eol = p;
+        while (*eol && *eol != '\n')
+            eol++;
+        if (*eol == '\n')
+            *eol++ = '\0';
+        while (*p == ' ' || *p == '\t')
+            p++;
+        if (*p != '#' && *p != '\0') {
+            char *eq = p;
+            while (*eq && *eq != '=')
+                eq++;
+            if (*eq == '=') {
+                char key[SVC_MAX_KEY];
+                long kl = eq - p;
+                char *val = eq + 1;
+
+                if (kl < (long)sizeof(key)) {
+                    for (long i = 0; i < kl; i++)
+                        key[i] = p[i];
+                    key[kl] = '\0';
+                    while (*val == ' ' || *val == '\t')
+                        val++;
+                    long vl = nstrlen(val);
+                    while (vl > 0 && (val[vl - 1] == ' ' || val[vl - 1] == '\t'))
+                        val[--vl] = '\0';
+                    if (vl >= 2 && ((*val == '"' && val[vl - 1] == '"') ||
+                                    (*val == '\'' && val[vl - 1] == '\''))) {
+                        val[vl - 1] = '\0';
+                        val++;
+                    }
+                    svc_set(key, val);
+                }
+            }
+        }
+        p = eol;
+    }
+}
+
+/* Copy `in` to `out`, replacing $NAME and ${NAME}. An unset name becomes the
+ * empty string, which is what a POSIX shell does for an unset variable. */
+static void svc_expand(const char *in, char *out, long cap)
+{
+    long o = 0;
+    const char *p = in;
+
+#define SVC_PUT(c)                                    \
+    do {                                              \
+        if (o < cap - 1)                              \
+            out[o++] = (c);                           \
+    } while (0)
+
+    while (*p) {
+        if (*p != '$') {
+            SVC_PUT(*p++);
+            continue;
+        }
+        p++;
+        long len = 0;
+        if (*p == '{') {
+            const char *s = ++p;
+            while (*p && *p != '}')
+                p++;
+            len = p - s;
+            if (*p == '}')
+                p++;
+            else
+                len = 0;
+            const char *v = len ? svc_get(s, len) : 0;
+            while (v && *v)
+                SVC_PUT(*v++);
+            continue;
+        }
+        const char *s = p;
+        while ((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') ||
+               (*p >= '0' && *p <= '9') || *p == '_')
+            p++;
+        len = p - s;
+        const char *v = len ? svc_get(s, len) : 0;
+        if (!v && !len)
+            SVC_PUT('$');
+        while (v && *v)
+            SVC_PUT(*v++);
+    }
+#undef SVC_PUT
+    out[o] = '\0';
+}
+
+/* Find `<name>() { ... }` and return its body; `*outlen` is the body length
+ * up to the line whose first token is `}`. */
+static const char *svc_find_block(const char *src, const char *name,
+                                  long *outlen)
+{
+    long nl = nstrlen(name);
+    const char *ls = src;
+
+    while (*ls) {
+        const char *le = ls;
+        while (*le && *le != '\n')
+            le++;
+        const char *q = ls;
+        while (*q == ' ' || *q == '\t')
+            q++;
+        if (nstrncmp(q, name, (u64)nl) == 0 && q[nl] == '(') {
+            const char *b = q + nl;
+            while (*b == '(' || *b == ')' || *b == ' ' || *b == '\t')
+                b++;
+            if (*b == '{') {
+                const char *body = b + 1;
+                const char *cl = (*le == '\n') ? le + 1 : le;
+
+                while (*cl) {
+                    const char *ce = cl;
+                    while (*ce && *ce != '\n')
+                        ce++;
+                    q = cl;
+                    while (*q == ' ' || *q == '\t')
+                        q++;
+                    if (*q == '}') {
+                        *outlen = cl - body;
+                        return body;
+                    }
+                    cl = (*ce == '\n') ? ce + 1 : ce;
+                }
+                return 0;
+            }
+        }
+        ls = (*le == '\n') ? le + 1 : le;
+    }
+    return 0;
+}
+
+/* Run one action of a service script. Every line executes (a shell does not
+ * abort a function on a failed command); the first non-zero exit code is the
+ * block's result, so a broken start() is reported even when a later command
+ * would have succeeded. */
+static int run_service_script(const char *path, const char *action)
+{
+    static char src[SVC_MAX_SRC];
+    static char ln[SVC_MAX_LINE];
+    static char exp[SVC_MAX_LINE];
+    long n = read_all(path, src, (long)sizeof(src));
+    const char *body;
+    long blen = 0;
+    int rc = 0;
+
+    if (n <= 0) {
+        nputs("nsh: cannot read service script: ");
+        nputs(path);
+        nputc('\n');
+        return 1;
+    }
+
+    /* The service name is the script's basename: `$SVCNAME` and the pidfile
+     * path both derive from it. */
+    {
+        const char *base = path;
+        const char *last = 0;
+
+        for (const char *p = path; *p; p++)
+            if (*p == '/')
+                last = p;
+        base = last ? last + 1 : base;
+        long i = 0;
+        while (base[i] && i < (long)sizeof(svc_name) - 1) {
+            svc_name[i] = base[i];
+            i++;
+        }
+        svc_name[i] = '\0';
+    }
+
+    svc_set("SVCNAME", svc_name);
+    svc_load_conf(svc_name);
+
+    body = svc_find_block(src, action, &blen);
+    if (!body) {
+        nputs("nsh: service ");
+        nputs(svc_name);
+        nputs(" does not support the action ");
+        nputs(action);
+        nputc('\n');
+        return 1;
+    }
+
+    for (long i = 0; i < blen; ) {
+        long k = 0;
+        while (i < blen && body[i] != '\n') {
+            if (k < (long)sizeof(ln) - 1 && body[i] != '\r')
+                ln[k++] = body[i];
+            i++;
+        }
+        ln[k] = '\0';
+        i++;
+        while (*ln == ' ' || *ln == '\t') {
+            for (long j = 0; ln[j]; j++)
+                ln[j] = ln[j + 1];
+        }
+        if (!*ln || *ln == '#')
+            continue;
+        svc_expand(ln, exp, (long)sizeof(exp));
+        if (!*exp)
+            continue;
+        {
+            int r = exec_line(exp);
+
+            if (r && !rc)
+                rc = r;
+        }
+    }
+    return rc;
+}
+
 int main(int argc, char **argv)
 {
     int boot_session = argc > 1 && nstrcmp(argv[1], "--session") == 0;
+    int rc_console = argc > 2 && nstrcmp(argv[2], "--rc-console") == 0;
+
+    /* Service-script mode owns the whole process: no boot rc, no motd, no
+     * prompt. OpenRC calls it as `/bin/sh <script> <action> --rc`. */
+    if (argc > 2 && argv[1][0] == '/')
+        sys_exit(run_service_script(argv[1], argv[2]));
 
     /* A boot script configures the session and stays out of the way: end it
      * with `exit` to hand control back to the kernel (what a non-interactive
@@ -959,7 +1353,10 @@ int main(int argc, char **argv)
 
     show_motd();
     nputs("Type 'help' for commands.\n");
-    if (boot_session)
+    /* `--rc-console` is the console that /sbin/openrc-init supervises: the
+     * graphical session belongs to the `desktop` service there, so this shell
+     * must not start a second compositor. */
+    if (boot_session && !rc_console)
         start_gui_session();
 
     for (;;) {

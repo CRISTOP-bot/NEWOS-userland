@@ -6,6 +6,8 @@
  */
 /* nshlib: shared userland library for NEWOS /bin programs.
  *
+ * NSH = Newos Shell Hyper: the shell and the /bin toolbox these helpers back.
+ *
  * Freestanding (no libc): thin int $0x80 wrappers plus the small string
  * and output helpers every command needs. Numbers and record layouts come
  * straight from the kernel ABI so the two sides cannot drift apart.

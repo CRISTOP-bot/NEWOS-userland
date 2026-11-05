@@ -1,0 +1,25 @@
+#!/bin/sh
+# /etc/init.d/bootmisc: final boot bookkeeping.
+# Real work: refresh /etc/issue, stamp the boot time read from the CMOS
+# clock, and open the system log. Upstream OpenRC does the same job with
+# utmp + /dev/shm; on NEWOS those do not exist, so the state files below
+# are the equivalent artifacts.
+
+depend() {
+    need localmount
+}
+
+start() {
+    echo NEWOS console - managed by OpenRC > /etc/issue
+    date > /run/openrc/boottime
+    echo boot: openrc started the boot runlevel > /var/log/messages
+    uptime >> /var/log/messages
+}
+
+status() {
+    cat /run/openrc/boottime
+}
+
+stop() {
+    echo boot: bootmisc stopped >> /var/log/messages
+}

@@ -32,10 +32,27 @@
 #define SEEK_END 2
 #endif
 
+/* Permission bits accepted by access(). The NEWOS kernel has no permission
+ * model, so SYS_ACCESS answers "does this path resolve?" and the mode is
+ * carried for source compatibility only. */
+#ifndef F_OK
+#define F_OK 0
+#endif
+#ifndef R_OK
+#define R_OK 4
+#endif
+#ifndef W_OK
+#define W_OK 2
+#endif
+#ifndef X_OK
+#define X_OK 1
+#endif
+
 long read(int fd, void *buf, unsigned long len);
 long write(int fd, const void *buf, unsigned long len);
 int close(int fd);
 long lseek(int fd, long off, int whence);
+int access(const char *path, int mode);
 /* NEWOS exposes the Linux-compatible brk syscall; malloc uses this to grow
  * the process heap beyond its initial image instead of a fixed arena. */
 void *sbrk(long increment);

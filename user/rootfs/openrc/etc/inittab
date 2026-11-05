@@ -1,0 +1,13 @@
+# /etc/inittab - NEWOS OpenRC console table (read by /sbin/openrc-init).
+# Format: <id>:<runlevels>:<action>:<process>
+#   sysinit   run before the runlevel chain, serially
+#   respawn   restarted whenever it exits (the console shell)
+#   wait      run once, waited for
+#   once      run once, waited for (boot is serial; see the note below)
+#   askfirst  same as wait: there is no getty to answer a prompt
+# Empty runlevels means "every runlevel". Every entry runs before the respawn
+# console is supervised, because the blocking wait on that console *is* the
+# supervision and only one of them can be held. Only the actions above are
+# implemented: NEWOS has no single-user switch, no power action and no ctrl
+# allocator, so those fields are not parsed.
+c1::respawn:/bin/sh --session --rc-console

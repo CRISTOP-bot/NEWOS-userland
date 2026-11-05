@@ -1,0 +1,25 @@
+#!/bin/sh
+# /etc/init.d/desktop: the graphical session service.
+# session_program comes from /etc/conf.d/desktop. The trailing & detaches
+# the compositor and records its pid in /run/<service>.pid, the NEWOS
+# equivalent of start-stop-daemon --pidfile. `keyword gui` keeps the
+# service out of the transaction when the boot has no framebuffer
+# (PVH/serial sessions), the same mechanism OpenRC uses to skip services
+# that cannot apply here.
+
+depend() {
+    after bootmisc
+    keyword gui
+}
+
+start() {
+    $session_program &
+}
+
+status() {
+    ps
+}
+
+stop() {
+    kill @/run/desktop.pid
+}
