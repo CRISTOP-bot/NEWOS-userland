@@ -228,8 +228,8 @@ int main(int argc, char **argv)
         return cmd_upgrade();
     }
     if (nstrcmp(argv[1], "search") == 0) {
-        if (argc != 3) return cmd_usage();
-        return cmd_search(argv[2]);
+        if (argc > 3) return cmd_usage();
+        return cmd_search(argc == 3 ? argv[2] : "");
     }
     if (nstrcmp(argv[1], "depends") == 0) {
         if (argc != 3) return cmd_usage();
