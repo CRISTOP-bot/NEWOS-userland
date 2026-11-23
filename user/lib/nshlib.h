@@ -112,4 +112,26 @@ void fputf(int fd, const char *fmt, ...);
 /* Print "prog: msg" + trailing newline to stdout. Returns code. */
 int fail(const char *prog, const char *msg);
 
+/* --- network + wireless (sys_* helpers) ---------------------------- */
+long sys_net_socket(int type);
+long sys_net_connect(int s, u32 ip, u32 port, u32 timeout_ms);
+long sys_net_bind(int s, u32 port);
+long sys_net_send(int s, const void *buf, u32 len, u32 timeout_ms);
+long sys_net_recv(int s, void *buf, u32 len, u32 timeout_ms);
+long sys_net_close(int s);
+long sys_net_dhcp(u32 timeout_ms);
+long sys_net_info(struct nsh_netinfo *ni);
+long sys_net_setip(u32 ip, u32 mask, u32 gw);
+long sys_net_ping(u32 ip, u32 timeout_ms);
+long sys_wifi_scan(struct nsh_wifi_ap *aps, int max);
+long sys_wifi_connect(const char *ssid, const char *pass, u32 timeout_ms);
+long sys_wifi_status(struct nsh_wifi_status *st);
+long sys_wifi_disconnect(void);
+long sys_net_dns(const char *name, u32 *ips, int max);
+
+int nsh_parse_ip(const char *s, u32 *out);
+void nsh_ip_str(u32 ip, char *out);
+int nsh_resolve(const char *name, u32 *ip);
+int nsh_http_fetch(const char *url, int out_fd, int head_only, int show_headers, int verbose);
+
 #endif
