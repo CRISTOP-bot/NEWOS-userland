@@ -67,9 +67,12 @@ int main(int argc, char **argv)
     if (nstrcmp(argv[1], "connect") == 0) {
         const char *ssid = argv[2];
         const char *pass = argc > 3 ? argv[3] : 0;
+        u32 timeout = 5000;
 
+        if (argc > 4)
+            timeout = (u32)natoi(argv[4]);
         if (sys_wifi_connect(ssid, pass,
-                             (long)(u64)(u32)(unsigned long)5000) != 0)
+                             (long)(u64)(u32)(unsigned long)timeout) != 0)
             return fail("wifi", "connect failed");
         return 0;
     }

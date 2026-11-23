@@ -1,0 +1,38 @@
+#!/bin/sh
+# /etc/init.d/wifi: bring up the wireless interface at boot.
+# Connects to the configured SSID from /etc/conf.d/wifi and obtains
+# an IP address via DHCP on the virtual radio (e1000 -> wlan0).
+
+depend() {
+    need localmount
+    after bootmisc
+}
+
+start() {
+    echo "wifi: starting"
+    if [ -f /etc/conf.d/wifi ]; then
+        . /etc/conf.d/wifi
+    fi
+    # Default SSID and password if not configured
+    : ${wifi_ssid:="NEWOS-QEMU"}
+    : ${wifi_pass:="newos12345"}
+    if [ -n "$wifi_pass" ]; then
+        wifi connect "$wifi_ssid" "$wifi_pass" 2000
+    else
+        wifi connect "$wifi_ssid" "" 2000
+    fi
+    if [ $? -eq 0 ]; then
+        echo "wifi: connected to $wifi_ssid"
+    else
+        echo "wifi: failed to connect to $wifi_ssid"
+    fi
+}
+
+stop() {
+    echo "wifi: stopping"
+    wifi disconnect
+}
+
+status() {
+    wifi status
+}
