@@ -617,6 +617,8 @@ int cmd_install_name(const char *name)
     char repo[REPO_URL_MAX];
     long ilen = ensure_index();
     long pos = 0;
+    long best = -1;
+    char best_ver[REPO_URL_MAX] = "";
     char ver[REPO_URL_MAX], fn[REPO_URL_MAX], crc_str[REPO_URL_MAX], arch[REPO_URL_MAX];
     const char *f;
     u32 want = 0;
@@ -641,14 +643,23 @@ int cmd_install_name(const char *name)
             end++;
         g_idx[end] = 0;
         pname = stanza_field((const char *)g_idx + start, "Package");
-        if (pname && c_eq(pname, name))
-            break;
+        if (pname && c_eq(pname, name)) {
+            char cand[REPO_URL_MAX];
+            const char *vf = stanza_field((const char *)g_idx + start, "Version");
+
+            c_copy(cand, vf ? vf : "", sizeof(cand));
+            if (best < 0 || newpkg_vercmp(cand, best_ver) > 0) {
+                best = start;
+                c_copy(best_ver, cand, sizeof(best_ver));
+            }
+        }
         pos = end + 2;
     }
-    if (pos >= ilen) {
+    if (best < 0) {
         fputf(1, "newpkg: package '%s' not in index\n", name);
         return 1;
     }
+    pos = best;
     f = stanza_field((const char *)g_idx + pos, "Version"); c_copy(ver, f ? f : "?", sizeof(ver));
     f = stanza_field((const char *)g_idx + pos, "Filename"); c_copy(fn, f ? f : "", sizeof(fn));
     f = stanza_field((const char *)g_idx + pos, "NEWOS-CRC32"); c_copy(crc_str, f ? f : "", sizeof(crc_str));
@@ -723,4 +734,89 @@ int cmd_install_name(const char *name)
     }
     putf("newpkg: verified %u bytes (CRC %08x)\n", (u32)total, got);
     return cmd_install(dst, 0);
+}
+
+/* --- upgrade ------------------------------------------------------------- */
+
+/* Find a package's newest version in the cached index. Returns 0 on hit. */
+static int index_best_version(const char *name, char *ver_out, u64 cap)
+{
+    long ilen = read_whole(REPO_IDX, g_idx, IDX_MAX);
+    long pos = 0;
+    int found = 0;
+
+    if (ilen <= 0)
+        return -1;
+    g_idx[ilen] = 0;
+    while (pos < ilen) {
+        long start = pos;
+        long end = pos;
+        char pname[REPO_URL_MAX], ver[REPO_URL_MAX];
+        const char *f;
+
+        while (end < ilen && !(g_idx[end] == '\n' && g_idx[end + 1] == '\n'))
+            end++;
+        g_idx[end] = 0;
+        f = stanza_field((const char *)g_idx + start, "Package");
+        c_copy(pname, f ? f : "", sizeof(pname));
+        if (c_eq(pname, name)) {
+            f = stanza_field((const char *)g_idx + start, "Version");
+            c_copy(ver, f ? f : "", sizeof(ver));
+            if (!found || newpkg_vercmp(ver, ver_out) > 0) {
+                c_copy(ver_out, ver, cap);
+                found = 1;
+            }
+        }
+        pos = end + 2;
+    }
+    return found ? 0 : -1;
+}
+
+/* Upgrade all installed packages that have a newer version in the index. */
+int cmd_upgrade_repo(void)
+{
+    static struct nsh_dirent dents[64];
+    long n, i;
+    int upgraded = 0, checked = 0;
+
+    if (ensure_index() <= 0) {
+        fputf(1, "newpkg: no package index (run 'newpkg update')\n");
+        return 1;
+    }
+    n = sys_readdir(DB_DIR, dents, sizeof(dents));
+    if (n < 0) {
+        nputs("no packages installed\n");
+        return 0;
+    }
+    for (i = 0; i < n; i++) {
+        u64 L = nstrlen(dents[i].name);
+        char name[NEWPKG_NAME_MAX], cur[NEWPKG_VER_MAX], avail[NEWPKG_VER_MAX];
+
+        if (L < 6 || nstrcmp(dents[i].name + L - 5, ".info") != 0)
+            continue;
+        {
+            u64 k;
+
+            for (k = 0; k + 5 < L && k + 1 < sizeof(name); k++)
+                name[k] = dents[i].name[k];
+            name[k] = 0;
+        }
+        if (db_read_key(name, "version", cur, sizeof(cur)) != 0)
+            continue;
+        checked++;
+        if (index_best_version(name, avail, sizeof(avail)) != 0)
+            continue;
+        if (newpkg_vercmp(avail, cur) > 0) {
+            putf("upgrade: %s %s -> %s\n", name, cur, avail);
+            if (cmd_install_name(name) == 0)
+                upgraded++;
+            else
+                fputf(1, "upgrade: failed for %s\n", name);
+        }
+    }
+    if (!checked)
+        nputs("no packages installed\n");
+    else if (!upgraded)
+        nputs("upgrade: all packages up to date\n");
+    return 0;
 }

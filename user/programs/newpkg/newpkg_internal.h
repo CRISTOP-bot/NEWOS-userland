@@ -71,5 +71,6 @@ int cmd_remove(const char *name);
 int cmd_list(void);
 int cmd_files(const char *name);
 int cmd_upgrade(void);
+int cmd_upgrade_repo(void);
 
 #endif

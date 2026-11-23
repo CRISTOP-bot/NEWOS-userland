@@ -361,32 +361,7 @@ int cmd_files(const char *name)
 
 int cmd_upgrade(void)
 {
-    static struct nsh_dirent dents[64];
-    long n, i;
-    int count = 0;
-    n = sys_readdir(DB_DIR, dents, sizeof(dents));
-    if (n < 0) {
-        nputs("no packages installed\n");
-        return 0;
-    }
-    for (i = 0; i < n; i++) {
-        u64 L = nstrlen(dents[i].name);
-        char name[NEWPKG_NAME_MAX], ver[NEWPKG_VER_MAX];
-        if (L < 6 || nstrcmp(dents[i].name + L - 5, ".info") != 0)
-            continue;
-        { u64 k; for (k = 0; k + 5 < L && k + 1 < sizeof(name); k++)
-            name[k] = dents[i].name[k];
-          name[k] = '\0'; }
-        if (db_read_key(name, "version", ver, sizeof(ver)) != 0)
-            nstrcpy(ver, "?");
-        /* Check if an update is available (placeholder: would
-         * query the repo in a real implementation). */
-        putf("upgrade: %s %s: checking...\n", name, ver);
-        count++;
-    }
-    if (!count)
-        nputs("nothing to upgrade\n");
-    else
-        nputs("upgrade: run 'newpkg install <pkg>.new' for updates\n");
-    return 0;
+    /* Delegates to the repository client: compares installed versions
+     * against the downloaded index and installs newer packages. */
+    return cmd_upgrade_repo();
 }
