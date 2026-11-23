@@ -513,6 +513,144 @@ static int http_exchange(const char *url, int out_fd, int head_only,
     return 0;
 }
 
+/* Write n bytes to fd, looping over short writes. */
+static int http_write_full(int fd, const u8 *buf, u32 len)
+{
+    u32 done = 0;
+
+    while (done < len) {
+        long n = sys_write(fd, buf + done, len - done);
+
+        if (n <= 0)
+            return -1;
+        done += (u32)n;
+    }
+    return 0;
+}
+
+/* Stream an HTTP response body directly to out_fd without buffering the
+ * whole body (needed for .new packages up to 32 MiB). Returns the number of
+ * body bytes written, or -1 on error. Follows no redirects (repos use plain
+ * http:// URLs). The caller owns out_fd. */
+long nsh_http_download(const char *url, int out_fd)
+{
+    struct http_url u;
+    char req[512];
+    char hdr[1024];
+    u32 htotal = 0;
+    u32 hdr_end = 0;
+    int status = -1;
+    long total = 0;
+    int s;
+    u32 ip = 0;
+
+    if (!url || out_fd < 0)
+        return -1;
+    if (http_parse(url, &u) != 0)
+        return -1;
+    if (nsh_resolve(u.host, &ip) != 0)
+        return -1;
+
+    {
+        u32 rl = http_build_req(req, sizeof(req), &u, 0);
+        s = (int)sys_net_socket(0);
+        if (s < 0)
+            return -1;
+        if (sys_net_connect(s, ip, u.port, 15000) != 0 ||
+            sys_net_send(s, req, rl, 15000) != (long)rl) {
+            sys_net_close(s);
+            return -1;
+        }
+    }
+
+    /* Read until we have the header terminator CRLF CRLF. */
+    while (htotal < sizeof(hdr)) {
+        long n = sys_net_recv(s, hdr + htotal, (u32)sizeof(hdr) - htotal, 15000);
+
+        if (n <= 0)
+            break;
+        htotal += (u32)n;
+        {
+            u32 i = 0;
+            int found = 0;
+
+            while (i + 4 <= htotal) {
+                if (hdr[i] == '\r' && hdr[i + 1] == '\n' &&
+                    hdr[i + 2] == '\r' && hdr[i + 3] == '\n') {
+                    hdr_end = i + 4;
+                    found = 1;
+                    break;
+                }
+                i++;
+            }
+            if (found)
+                break;
+        }
+    }
+    if (hdr_end == 0) {
+        sys_net_close(s);
+        return -1;
+    }
+
+    /* Status line: first digit-run after the first space. */
+    {
+        u32 i = 0;
+
+        while (i + 1 < htotal && (hdr[i] < '0' || hdr[i] > '9') &&
+               hdr[i] != ' ')
+            i++;
+        status = 0;
+        {
+            u32 v = 0;
+            u32 j = i + 1;
+
+            while (j < htotal && hdr[j] >= '0' && hdr[j] <= '9') {
+                v = v * 10 + (u32)(hdr[j] - '0');
+                j++;
+            }
+            status = (int)v;
+        }
+    }
+    if (status < 200 || status >= 300) {
+        sys_net_close(s);
+        return -1;
+    }
+
+    /* Any header bytes beyond the terminator belong to the body. */
+    if (htotal > hdr_end) {
+        u32 extra = htotal - hdr_end;
+
+        if (http_write_full(out_fd, (const u8 *)hdr + hdr_end, extra) != 0) {
+            sys_net_close(s);
+            return -1;
+        }
+        total += (long)extra;
+    }
+
+    /* Stream the rest straight to out_fd. */
+    {
+        u8 buf[512];
+
+        for (;;) {
+            long n = sys_net_recv(s, buf, (u32)sizeof(buf), 15000);
+
+            if (n < 0) {
+                sys_net_close(s);
+                return -1;
+            }
+            if (n == 0)
+                break;
+            if (http_write_full(out_fd, buf, (u32)n) != 0) {
+                sys_net_close(s);
+                return -1;
+            }
+            total += n;
+        }
+    }
+    sys_net_close(s);
+    return total;
+}
+
 int nsh_http_fetch(const char *url, int out_fd, int head_only, int show_headers,
                    int verbose)
 {
@@ -521,12 +659,13 @@ int nsh_http_fetch(const char *url, int out_fd, int head_only, int show_headers,
     int status = 0;
     int rc = -1;
     u32 hops = 0;
+    u32 copy_len = 0;
 
     (void)show_headers;
     (void)verbose;
     if (!url)
         return -1;
-    if (http_copy(cur, url, sizeof(cur), &hops) != 0)
+    if (http_copy(cur, url, sizeof(cur), &copy_len) != 0)
         return -1;
     while (hops < HTTP_MAX_REDIRECTS) {
         int ex_status = -1;
@@ -541,7 +680,7 @@ int nsh_http_fetch(const char *url, int out_fd, int head_only, int show_headers,
             break;
         if (!location || !*location)
             break;
-        if (http_copy(cur, location, sizeof(cur), &hops) != 0)
+        if (http_copy(cur, location, sizeof(cur), &copy_len) != 0)
             break;
     }
     return rc;

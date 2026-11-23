@@ -133,5 +133,6 @@ int nsh_parse_ip(const char *s, u32 *out);
 void nsh_ip_str(u32 ip, char *out);
 int nsh_resolve(const char *name, u32 *ip);
 int nsh_http_fetch(const char *url, int out_fd, int head_only, int show_headers, int verbose);
+long nsh_http_download(const char *url, int out_fd);
 
 #endif

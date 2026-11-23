@@ -53,6 +53,14 @@ int check_deps(const char *pkg_name);
 int stream_payload(int pkg_fd, int write_mode, u32 *done_count);
 void rollback(const char *pkg, u32 count);
 
+/* newpkg_repo.c: Debian-like repository client (Release/Packages/pool). */
+int cmd_repo_add(const char *url);
+int cmd_repo_list(void);
+int cmd_repo_remove(const char *url);
+int cmd_update(void);
+int cmd_repo_search(const char *query);
+int cmd_install_name(const char *name);
+
 /* newpkg_cmds.c: install-side commands. The query commands (search,
  * depends, conflicts, clean, repo, changelog) and cmd_usage stay static
  * in newpkg_main.c next to main(). */
