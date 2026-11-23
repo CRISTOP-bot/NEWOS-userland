@@ -49,13 +49,13 @@ long sys_net_bind(int s, u32 port)
 
 long sys_net_send(int s, const void *buf, u32 len, u32 timeout_ms)
 {
-    return SYSC4(SYS_NET_SEND, s, (long)(u64)(u32)(unsigned long)buf, len,
+    return SYSC4(SYS_NET_SEND, s, (long)(u64)(unsigned long)buf, len,
                  timeout_ms);
 }
 
 long sys_net_recv(int s, void *buf, u32 len, u32 timeout_ms)
 {
-    return SYSC4(SYS_NET_RECV, s, (long)(u64)(u32)(unsigned long)buf, len,
+    return SYSC4(SYS_NET_RECV, s, (long)(u64)(unsigned long)buf, len,
                  timeout_ms);
 }
 
@@ -86,7 +86,7 @@ long sys_net_ping(u32 ip, u32 timeout_ms)
 
 long sys_wifi_scan(struct nsh_wifi_ap *aps, int max)
 {
-    return SYSC2(SYS_WIFI_SCAN, (long)(u64)(u32)(unsigned long)aps, max);
+    return SYSC2(SYS_WIFI_SCAN, (long)(u64)(unsigned long)aps, max);
 }
 
 long sys_wifi_connect(const char *ssid, const char *pass, u32 timeout_ms)
@@ -108,7 +108,7 @@ long sys_wifi_disconnect(void)
 long sys_net_dns(const char *name, u32 *ips, int max)
 {
     return SYSC3(SYS_NET_DNS, (long)(u64)(unsigned long)name,
-                 (long)(u64)(u32)(unsigned long)ips, max);
+                 (long)(u64)(unsigned long)ips, max);
 }
 
 /* --- IP helpers ------------------------------------------------------------ */
