@@ -1,0 +1,11 @@
+Origin: NEWOS
+Label: NEWOS
+Suite: stable
+Codename: newos
+Architectures: x86_64
+Components: main
+Description: NEWOS native package repository
+Date: Mon, 23 Nov 2026 22:43:03 UTC
+MD5Sum: 363                              131899a0d9a65d35508342c1ff4bc228 dists/stable/main/binary-x86_64/Packages
+SHA256: 363                                                              c3405478626766766e3f1382cee10a82c9f7afc4af8d546d96779624176d9877 dists/stable/main/binary-x86_64/Packages
+CRC32: 793c9974 363 dists/stable/main/binary-x86_64/Packages

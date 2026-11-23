@@ -136,9 +136,51 @@ static int write_whole(const char *path, const u8 *buf, u64 len)
 }
 
 /* Fetch a URL to a local file via the streaming HTTP client. Returns 0/-1. */
+/* Copy a local file to path (used by file: repositories). */
+static int copy_local(const char *src, const char *dst)
+{
+    long sfd = sys_open(src, O_READ);
+    long dfd;
+    u8 buf[512];
+    long n;
+
+    if (sfd < 0)
+        return -1;
+    sys_unlink(dst);
+    dfd = sys_open(dst, O_WRITE | O_CREATE);
+    if (dfd < 0) {
+        sys_close((int)sfd);
+        return -1;
+    }
+    for (;;) {
+        n = sys_read((int)sfd, buf, sizeof(buf));
+        if (n < 0) {
+            sys_close((int)sfd);
+            sys_close((int)dfd);
+            return -1;
+        }
+        if (n == 0)
+            break;
+        if (write_full((int)dfd, buf, (u64)n) != 0) {
+            sys_close((int)sfd);
+            sys_close((int)dfd);
+            return -1;
+        }
+    }
+    sys_close((int)sfd);
+    sys_close((int)dfd);
+    return 0;
+}
+
 static int fetch_to(const char *url, const char *path)
 {
     long fd;
+
+    /* Local repositories: a leading "file:" or "/" is a path on the VFS. */
+    if (c_prefix(url, "file:"))
+        return copy_local(url + 5, path);
+    if (url[0] == '/')
+        return copy_local(url, path);
 
     sys_unlink(path);
     fd = sys_open(path, O_WRITE | O_CREATE);
@@ -365,13 +407,18 @@ static int release_crc(const char *release, long len, u32 *crc_out)
 
             while (q < end && *q == ' ')
                 q++;
-            while (q < end && *q >= '0' && *q <= '9') {
-                v = (v << 4) | (u32)(*q - '0');
-                digits++;
-                q++;
-            }
-            while (q < end && *q >= 'a' && *q <= 'f') {
-                v = (v << 4) | (u32)(*q - 'a' + 10);
+            while (q < end) {
+                u32 d;
+
+                if (*q >= '0' && *q <= '9')
+                    d = (u32)(*q - '0');
+                else if (*q >= 'a' && *q <= 'f')
+                    d = (u32)(*q - 'a' + 10);
+                else if (*q >= 'A' && *q <= 'F')
+                    d = (u32)(*q - 'A' + 10);
+                else
+                    break;
+                v = (v << 4) | d;
                 digits++;
                 q++;
             }
@@ -535,20 +582,25 @@ int cmd_repo_search(const char *query)
     while (pos < ilen) {
         long start = pos;
         long end = pos;
-        const char *name, *ver, *desc, *arch;
+        char name[REPO_URL_MAX], ver[REPO_URL_MAX], desc[REPO_URL_MAX];
+        char arch[REPO_URL_MAX];
+        const char *f;
 
         while (end < ilen && !(g_idx[end] == '\n' && g_idx[end + 1] == '\n'))
             end++;
         g_idx[end] = 0;
-        name = stanza_field((const char *)g_idx + start, "Package");
-        ver = stanza_field((const char *)g_idx + start, "Version");
-        desc = stanza_field((const char *)g_idx + start, "Description");
-        arch = stanza_field((const char *)g_idx + start, "Architecture");
-        if (name && (!query || !*query ||
-                     str_contains_local(name, query) ||
-                     (desc && str_contains_local(desc, query)))) {
-            putf("%s/%s %s %s\n", name, ver ? ver : "?", arch ? arch : "?",
-                 desc ? desc : "");
+        f = stanza_field((const char *)g_idx + start, "Package");
+        c_copy(name, f ? f : "", sizeof(name));
+        f = stanza_field((const char *)g_idx + start, "Version");
+        c_copy(ver, f ? f : "?", sizeof(ver));
+        f = stanza_field((const char *)g_idx + start, "Description");
+        c_copy(desc, f ? f : "", sizeof(desc));
+        f = stanza_field((const char *)g_idx + start, "Architecture");
+        c_copy(arch, f ? f : "?", sizeof(arch));
+        if (name[0] && (!query || !*query ||
+                        str_contains_local(name, query) ||
+                        str_contains_local(desc, query))) {
+            putf("%s/%s %s %s\n", name, ver, arch, desc);
             found++;
         }
         pos = end + 2;
@@ -565,7 +617,8 @@ int cmd_install_name(const char *name)
     char repo[REPO_URL_MAX];
     long ilen = ensure_index();
     long pos = 0;
-    const char *ver, *fn, *crc_str, *arch;
+    char ver[REPO_URL_MAX], fn[REPO_URL_MAX], crc_str[REPO_URL_MAX], arch[REPO_URL_MAX];
+    const char *f;
     u32 want = 0;
     char url[REPO_URL_MAX * 2];
     char dst[160];
@@ -596,12 +649,12 @@ int cmd_install_name(const char *name)
         fputf(1, "newpkg: package '%s' not in index\n", name);
         return 1;
     }
-    ver = stanza_field((const char *)g_idx + pos, "Version");
-    fn = stanza_field((const char *)g_idx + pos, "Filename");
-    crc_str = stanza_field((const char *)g_idx + pos, "NEWOS-CRC32");
-    arch = stanza_field((const char *)g_idx + pos, "Architecture");
-    if (!fn || !crc_str || parse_hex32(crc_str, &want) != 0 ||
-        (arch && nstrcmp(arch, REPO_ARCH) != 0 && nstrcmp(arch, "any") != 0)) {
+    f = stanza_field((const char *)g_idx + pos, "Version"); c_copy(ver, f ? f : "?", sizeof(ver));
+    f = stanza_field((const char *)g_idx + pos, "Filename"); c_copy(fn, f ? f : "", sizeof(fn));
+    f = stanza_field((const char *)g_idx + pos, "NEWOS-CRC32"); c_copy(crc_str, f ? f : "", sizeof(crc_str));
+    f = stanza_field((const char *)g_idx + pos, "Architecture"); c_copy(arch, f ? f : "?", sizeof(arch));
+    if (!fn[0] || !crc_str[0] || parse_hex32(crc_str, &want) != 0 ||
+        (nstrcmp(arch, REPO_ARCH) != 0 && nstrcmp(arch, "any") != 0)) {
         fputf(1, "newpkg: bad index entry for '%s'\n", name);
         return 1;
     }
@@ -637,7 +690,7 @@ int cmd_install_name(const char *name)
     c_copy(url, repo, sizeof(url));
     c_append(url, sizeof(url), "/");
     c_append(url, sizeof(url), fn);
-    putf("newpkg: downloading %s %s...\n", name, ver ? ver : "?");
+    putf("newpkg: downloading %s %s...\n", name, ver);
     if (fetch_to(url, dst) != 0) {
         fputf(1, "newpkg: download failed: %s\n", url);
         return 1;

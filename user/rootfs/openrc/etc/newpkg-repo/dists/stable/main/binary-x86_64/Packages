@@ -1,0 +1,14 @@
+Package: hello-new
+Version: 1.0.0
+Architecture: x86_64
+Description: Hello world smoke-test program for the .new package system
+Maintainer: NEWOS
+License: MIT
+Depends: 
+Section: main
+Filename: pool/main/hello-new/hello-new-1.0.0-x86_64.new
+Size: 1359
+SHA256: 55216659b295d47ddce968e89e68aa3a963b2d4b4e26f1ebae5dba63b63b0ac1
+NEWOS-CRC32: 246aed48
+NEWOS-Min: 0.2.0
+
