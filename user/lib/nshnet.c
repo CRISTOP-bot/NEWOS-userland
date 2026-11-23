@@ -156,9 +156,9 @@ void nsh_ip_str(u32 ip, char *out)
     b[2] = (u8)(ip >> 8);
     b[3] = (u8)(ip);
 
-    /* Print each octet in decimal */
+    /* Print each octet in decimal (network byte order: b[0].b[1].b[2].b[3]) */
     for (int i = 0; i < 4; i++) {
-        v = b[3 - i];
+        v = b[i];
         if (v >= 100) {
             out[o++] = (char)('0' + v / 100);
             v %= 100;
