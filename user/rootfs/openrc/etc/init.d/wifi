@@ -1,7 +1,8 @@
 #!/bin/sh
 # /etc/init.d/wifi: bring up the wireless interface at boot.
-# Connects to the configured SSID from /etc/conf.d/wifi and obtains
-# an IP address via DHCP on the virtual radio (e1000 -> wlan0).
+# Connects to the SSID from /etc/conf.d/wifi on the virtual radio (wlan0).
+# NOTE: the NEWOS service-script interpreter is Bourne-ish but has no
+# if/then/fi or test builtin, so this script stays to plain commands.
 
 depend() {
     need localmount
@@ -9,23 +10,9 @@ depend() {
 }
 
 start() {
-    echo "wifi: starting"
-    if [ -f /etc/conf.d/wifi ]; then
-        . /etc/conf.d/wifi
-    fi
-    # Default SSID and password if not configured
-    : ${wifi_ssid:="NEWOS-QEMU"}
-    : ${wifi_pass:="newos12345"}
-    if [ -n "$wifi_pass" ]; then
-        wifi connect "$wifi_ssid" "$wifi_pass" 2000
-    else
-        wifi connect "$wifi_ssid" "" 2000
-    fi
-    if [ $? -eq 0 ]; then
-        echo "wifi: connected to $wifi_ssid"
-    else
-        echo "wifi: failed to connect to $wifi_ssid"
-    fi
+    echo "wifi: auto-connecting at boot"
+    wifi connect $wifi_ssid $wifi_pass $wifi_timeout
+    wifi status
 }
 
 stop() {

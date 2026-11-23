@@ -1,5 +1,4 @@
 # /etc/conf.d/wifi: configuration for the wifi OpenRC service.
-# SSID and password for the wireless network to connect to at boot.
-
 wifi_ssid="NEWOS-QEMU"
 wifi_pass="newos12345"
+wifi_timeout="2000"
