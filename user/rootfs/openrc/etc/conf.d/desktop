@@ -1,5 +1,7 @@
 # /etc/conf.d/desktop - graphical session parameters (KEY=VALUE).
-# Read by /etc/init.d/desktop through the $session_program substitution.
-# Quake 2 (GPL-2.0) is the default graphical session: it owns the framebuffer
-# and shows a startup splash. Run `/bin/voxel` from nsh for the classic desktop.
-session_program="/bin/quake2"
+# The gui=1 boot session is /bin/desktop: a fullscreen compositor that renders
+# at the monitor's native framebuffer resolution (SYS_FBINFO width x height).
+# OpenRC starts it through the console shell in /etc/inittab; Ctrl+Q exits the
+# desktop and OpenRC respawns a clean shell. Run /bin/quake2 or /bin/voxel from
+# nsh for the game/demo renderers.
+session_program="/bin/desktop"

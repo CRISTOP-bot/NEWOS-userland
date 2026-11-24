@@ -580,9 +580,9 @@ static int boot_flag(const char *flag)
 }
 
 /* The kernel always enters this shell. On a framebuffer boot carrying
- * `gui=1`, the boot shell (argv[1] == "--session") opens the graphical
- * session as a child and returns to the prompt when the desktop closes
- * (Ctrl+Q or the last window). Launches made later from the shell have no
+ * `gui=1`, the boot shell (argv[1] == "--session") launches /bin/desktop
+ * fullscreen as a child and exits when it closes (Ctrl+Q); OpenRC's inittab
+ * then respawns a clean shell. Launches made later from the shell have no
  * session flag, so nested `sh` instances stay plain shells. */
 static void start_gui_session(void)
 {
@@ -597,18 +597,22 @@ static void start_gui_session(void)
         nputs("gui: no framebuffer; staying in nsh\n");
         return;
     }
-    argv[0] = (char *)"/bin/voxel";
-    nputs("gui: starting /bin/voxel (Ctrl+Q returns to nsh)\n");
-    pid = sys_spawn2("/bin/voxel", argv, 1);
+    /* /bin/desktop renders at the monitor's full framebuffer resolution
+     * (no border/letterbox): it reads fi.width x fi.height from SYS_FBINFO.
+     * voxel/quake2 keep their fixed-size viewports and are available from
+     * nsh, but the boot session is the fullscreen compositor. */
+    argv[0] = (char *)"/bin/desktop";
+    nputs("gui: starting /bin/desktop (fullscreen, Ctrl+Q exits)\n");
+    pid = sys_spawn2("/bin/desktop", argv, 1);
     if (pid < 0) {
-        nputs("gui: voxel unavailable; staying in nsh\n");
+        nputs("gui: desktop unavailable; staying in nsh\n");
         return;
     }
     (void)sys_waitpid((pid_t)pid);
-    /* fbcon and the compositor share the panel; start the text session on a
-     * clean screen with a fresh cursor after the compositor's last frame. */
-    nputs("\x1B[2J\x1B[H");
-    nputs("gui: voxel completed; back to nsh\n");
+    /* The fullscreen session owned the panel. Exit this shell so OpenRC's
+     * inittab respawns a fresh one on a clean console, instead of dropping
+     * back to a prompt painted over the compositor's last frame. */
+    sys_exit(0);
 }
 
 static int is_builtin_name(const char *s)
