@@ -1,5 +1,5 @@
 # /etc/conf.d/desktop - graphical session parameters (KEY=VALUE).
 # Read by /etc/init.d/desktop through the $session_program substitution.
-# VOXEL is now the default graphical session (the legacy Win95 /bin/desktop
-# has been removed). It runs at the bootloader's native framebuffer resolution.
-session_program="/bin/voxel"
+# Quake 2 (GPL-2.0) is the default graphical session: it owns the framebuffer
+# and shows a startup splash. Run `/bin/voxel` from nsh for the classic desktop.
+session_program="/bin/quake2"
