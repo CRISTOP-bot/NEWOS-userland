@@ -261,6 +261,21 @@ long sys_console_gui(int on)
     return SYSC1(SYS_CONSOLE_GUI, on);
 }
 
+long sys_audio_open(void)
+{
+    return SYSC0(SYS_AUDIO_OPEN);
+}
+
+long sys_audio_write(long handle, const void *pcm, u32 bytes)
+{
+    return SYSC3(SYS_AUDIO_WRITE, handle, pcm, bytes);
+}
+
+long sys_audio_close(long handle)
+{
+    return SYSC1(SYS_AUDIO_CLOSE, handle);
+}
+
 long sys_pipe(int fds[2])
 {
     return SYSC1(SYS_PIPE, fds);

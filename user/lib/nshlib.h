@@ -81,6 +81,10 @@ long sys_kbd_read(void *buf, u64 len);
  * fbcon stops painting logs and the legacy mouse arrow until this process
  * releases it (or exits). */
 long sys_console_gui(int on);
+/* Audio (fixed 48 kHz stereo 16-bit PCM playback through HDA). */
+long sys_audio_open(void);
+long sys_audio_write(long handle, const void *pcm, u32 bytes);
+long sys_audio_close(long handle);
 long sys_pipe(int fds[2]);
 long sys_spawn3(const char *path, char **argv, int argc, int fdin, int fdout);
 void sys_exit(int code);
