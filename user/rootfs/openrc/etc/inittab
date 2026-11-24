@@ -10,4 +10,5 @@
 # supervision and only one of them can be held. Only the actions above are
 # implemented: NEWOS has no single-user switch, no power action and no ctrl
 # allocator, so those fields are not parsed.
+s1::sysinit:/sbin/sysrestore
 c1::respawn:/bin/sh --session --rc-console

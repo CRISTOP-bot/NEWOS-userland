@@ -498,15 +498,16 @@ static int builtin_help(void)
     nputs("builtins: cd, exit, help, history, clear\n");
     nputs("/bin: ls cat echo mkdir rmdir rm mv touch pwd clear uname\n");
     nputs("       hostname whoami id date uptime ps kill sleep free\n");
-    nputs("       df wc head grep find sort hello img vid desktop\n");
+    nputs("       df wc head grep find sort hello img vid voxel\n");
     nputs("       about newpkg newfetch nano tcc busybox\n");
+    nputs("installer: newinstall (needs an ATA/FAT32 disk at /fat)\n");
     nputs("GNU tools install under /usr/bin; use /usr/bin/<tool>\n");
     nputs("BusyBox: 'busybox --list'; unshadowed applet names run automatically\n");
     nputs("Images: img /etc/splash.bmp  |  img /etc/test.ppm\n");
     nputs("nano: GNU nano (Ctrl+O save, Ctrl+X exit)\n");
     nputs("tcc: Tiny C Compiler; 'tcc -c file.c -o file.o' needs no SDK\n");
     nputs("pipes: cmd1 | cmd2    redirect: cmd > f, cmd >> f, cmd < f\n");
-    nputs("GUI: boot with gui=1, choose the GUI Limine entry, or run desktop\n");
+    nputs("GUI: boot with gui=1, installed session=gui, or run voxel\n");
     nputs("boot: init=<path> gui=0/1 headless=1 test_mode=1\n");
     nputs("keys: Ctrl+A/E line ends, Ctrl+U/W/K cut, Ctrl+Y/V paste,\n");
     nputs("      Ctrl+C cancel, Ctrl+D exit, Ctrl+L clear\n");
@@ -579,33 +580,49 @@ static int boot_flag(const char *flag)
     return text_has(buf, flag);
 }
 
-/* The kernel always enters this shell. On a framebuffer boot carrying
- * `gui=1`, the boot shell (argv[1] == "--session") launches /bin/desktop
- * fullscreen as a child and exits when it closes (Ctrl+Q); OpenRC's inittab
- * then respawns a clean shell. Launches made later from the shell have no
- * session flag, so nested `sh` instances stay plain shells. */
+/* A system installed by /bin/newinstall records its session choice in
+ * /etc/newos.conf. This is restored by /sbin/sysrestore at sysinit, so the
+ * installed session applies without a special boot cmdline. */
+static int installed_gui_session(void)
+{
+    char buf[1024];
+    long fd = sys_open("/etc/newos.conf", O_READ);
+    long n;
+
+    if (fd < 0)
+        return 0;
+    n = sys_read((int)fd, buf, sizeof(buf) - 1);
+    sys_close((int)fd);
+    if (n <= 0)
+        return 0;
+    buf[n] = '\0';
+    return text_has(buf, "session=gui");
+}
+
+/* The kernel always enters this shell. A framebuffer boot with `gui=1`, or
+ * an installed system with `session=gui`, makes the boot shell (argv[1] ==
+ * "--session") launch /bin/voxel fullscreen; it exits on Esc/q and OpenRC's
+ * inittab respawns a clean shell. Later shells have no session flag and stay
+ * plain. Under OpenRC the graphical session is the `voxel` service instead. */
 static void start_gui_session(void)
 {
     struct nsh_fbinfo fi;
     char *argv[1];
     long pid;
 
-    if (!boot_flag("gui=1") || boot_flag("test_mode=1") ||
-        boot_flag("headless=1"))
+    if ((!boot_flag("gui=1") && !installed_gui_session()) ||
+        boot_flag("test_mode=1") || boot_flag("headless=1"))
         return;
     if (sys_fbinfo(&fi) != 0 || !fi.present) {
         nputs("gui: no framebuffer; staying in nsh\n");
         return;
     }
-    /* /bin/desktop renders at the monitor's full framebuffer resolution
-     * (no border/letterbox): it reads fi.width x fi.height from SYS_FBINFO.
-     * voxel/quake2 keep their fixed-size viewports and are available from
-     * nsh, but the boot session is the fullscreen compositor. */
-    argv[0] = (char *)"/bin/desktop";
-    nputs("gui: starting /bin/desktop (fullscreen, Ctrl+Q exits)\n");
-    pid = sys_spawn2("/bin/desktop", argv, 1);
+    /* VOXEL is the only graphical session shipped in the image. */
+    argv[0] = (char *)"/bin/voxel";
+    nputs("gui: starting /bin/voxel (fullscreen, Esc/q exits)\n");
+    pid = sys_spawn2("/bin/voxel", argv, 1);
     if (pid < 0) {
-        nputs("gui: desktop unavailable; staying in nsh\n");
+        nputs("gui: voxel unavailable; staying in nsh\n");
         return;
     }
     (void)sys_waitpid((pid_t)pid);

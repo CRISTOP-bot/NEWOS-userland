@@ -1,7 +1,0 @@
-# /etc/conf.d/desktop - graphical session parameters (KEY=VALUE).
-# The gui=1 boot session is /bin/desktop: a fullscreen compositor that renders
-# at the monitor's native framebuffer resolution (SYS_FBINFO width x height).
-# OpenRC starts it through the console shell in /etc/inittab; Ctrl+Q exits the
-# desktop and OpenRC respawns a clean shell. Run /bin/quake2 or /bin/voxel from
-# nsh for the game/demo renderers.
-session_program="/bin/desktop"

@@ -72,6 +72,9 @@ int nsh_proc_uptime(u64 *sec, u64 *centi);
 long sys_fbinfo(struct nsh_fbinfo *fi);
 long sys_fbwrite(const struct nsh_fbwrite *rq);
 long sys_lseek(int fd, long off, int whence);
+/* Needed before large sequential writes to FAT32: the driver can only extend
+ * a file's cluster chain through ftruncate, not through plain write(). */
+long sys_ftruncate(int fd, u64 len);
 long sys_mouse_get(struct nsh_mouse *m);
 /* Foreground GUI input: grab routes PS/2 bytes to sys_kbd_read() until
  * released. sys_kbd_read() is non-blocking and returns bytes copied. */

@@ -241,6 +241,11 @@ long sys_lseek(int fd, long off, int whence)
     return SYSC3(SYS_LSEEK, fd, off, whence);
 }
 
+long sys_ftruncate(int fd, u64 len)
+{
+    return SYSC2(SYS_FTRUNCATE, fd, len);
+}
+
 long sys_mouse_get(struct nsh_mouse *m)
 {
     return SYSC1(SYS_MOUSE_GET, m);

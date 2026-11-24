@@ -1,0 +1,8 @@
+# /etc/conf.d/voxel - graphical session parameters (KEY=VALUE).
+# The gui=1 boot session is /bin/voxel: the VOXEL classic desktop compositor
+# from ports/voxel, rendering at the monitor's native framebuffer resolution
+# (SYS_FBINFO width x height). OpenRC starts it through the console shell in
+# /etc/inittab; Esc/q exits it and OpenRC respawns a clean shell. Run
+# /bin/quake2 from nsh for the game renderer.
+
+session_program="/bin/voxel"
