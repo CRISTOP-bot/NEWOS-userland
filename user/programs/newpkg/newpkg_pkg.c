@@ -165,16 +165,38 @@ void entry_path(u32 k)
  * DB_DIR/<name>.files = manifest copy
  */
 
+/* Map a package name to an 8.3-safe file token. FAT32 (the persistent
+ * /fat volume) uppercases and truncates filenames to 8.3, so a canonical
+ * name such as "gnu-coreutils" would come back as "GNU-CORE" and break
+ * directory scans. We derive a deterministic 8-char hex token from the
+ * name instead; the real name lives inside the .info file. */
+void db_token(const char *name, char token[9])
+{
+    u32 h = 2166136261u;                 /* FNV-1a */
+    for (const char *p = name; *p; p++) {
+        h ^= (u8)*p;
+        h *= 16777619u;
+    }
+    static const char hex[] = "0123456789ABCDEF";
+    for (int i = 7; i >= 0; i--) {
+        token[i] = hex[h & 0xFu];
+        h >>= 4;
+    }
+    token[8] = '\0';
+}
+
 void db_paths(const char *name, char *info, char *files)
 {
+    char tok[9];
+    db_token(name, tok);
     nstrcpy(info, DB_DIR);
     nstrcat(info, "/");
-    nstrcat(info, name);
-    nstrcat(info, ".info");
+    nstrcat(info, tok);
+    nstrcat(info, ".INF");
     nstrcpy(files, DB_DIR);
     nstrcat(files, "/");
-    nstrcat(files, name);
-    nstrcat(files, ".files");
+    nstrcat(files, tok);
+    nstrcat(files, ".FIL");
 }
 
 /* Read `key` from an installed package's .info file. */
@@ -220,8 +242,8 @@ int db_find_owner(const char *path, char *owner, u64 cap)
         char full[128];
         long fd, r;
         u64 blen = 0;
-        /* Only "*.files" entries. */
-        if (L < 7 || nstrcmp(dents[i].name + L - 6, ".files") != 0)
+        /* Only 8.3 "*.FIL" manifest entries on the persistent DB. */
+        if (L < 8 || nstrcmp(dents[i].name + L - 4, ".FIL") != 0)
             continue;
         nstrcpy(full, DB_DIR);
         nstrcat(full, "/");
@@ -244,10 +266,40 @@ int db_find_owner(const char *path, char *owner, u64 cap)
                 if (newpkg_manifest_parse_line(g_line, ep, &a, &b, &c) ==
                         0 &&
                     nstrcmp(ep, path) == 0) {
-                    u64 k;
-                    for (k = 0; k + 6 < (u64)L && k + 1 < cap; k++)
-                        owner[k] = dents[i].name[k];
-                    owner[k] = '\0';
+                    /* The filename is an 8.3 token; read the canonical
+                     * package name from the matching .INF metadata. */
+                    char inf_name[160], nm[NEWPKG_NAME_MAX];
+                    u8 mb[NEWPKG_META_MAX + 256];
+                    u64 mt = 0;
+                    long mfd, mr;
+                    nstrcpy(inf_name, full);
+                    inf_name[nstrlen(inf_name) - 3] = 'I';
+                    inf_name[nstrlen(inf_name) - 2] = 'N';
+                    inf_name[nstrlen(inf_name) - 1] = 'F';
+                    mfd = sys_open(inf_name, O_READ);
+                    if (mfd >= 0) {
+                        for (;;) {
+                            mr = sys_read((int)mfd, mb + mt,
+                                          sizeof(mb) - mt);
+                            if (mr <= 0) break;
+                            mt += (u64)mr;
+                            if (mt >= sizeof(mb)) break;
+                        }
+                        sys_close((int)mfd);
+                    }
+                    if (mfd >= 0 && mt &&
+                        newpkg_meta_get(mb, (u32)mt, "name", nm,
+                                        (newpkg_usize)sizeof(nm)) == 0) {
+                        u64 k;
+                        for (k = 0; nm[k] && k + 1 < cap; k++)
+                            owner[k] = nm[k];
+                        owner[k] = '\0';
+                    } else {
+                        u64 k;
+                        for (k = 0; k + 4 < (u64)L && k + 1 < cap; k++)
+                            owner[k] = dents[i].name[k];
+                        owner[k] = '\0';
+                    }
                     sys_close((int)fd);
                     return 1;
                 }

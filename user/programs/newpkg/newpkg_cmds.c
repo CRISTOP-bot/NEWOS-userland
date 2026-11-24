@@ -300,14 +300,32 @@ int cmd_list(void)
     }
     for (i = 0; i < n; i++) {
         u64 L = nstrlen(dents[i].name);
-        char name[NEWPKG_NAME_MAX], ver[NEWPKG_VER_MAX];
-        u64 k;
-        if (L < 6 || nstrcmp(dents[i].name + L - 5, ".info") != 0)
+        char path[160], name[NEWPKG_NAME_MAX], ver[NEWPKG_VER_MAX];
+        u8 metabuf[NEWPKG_META_MAX + 256];
+        long fd, r;
+        u64 total = 0;
+        /* Files are 8.3 tokens (TOKEN.INF) on the persistent FAT32 DB; the
+         * canonical name is stored inside the .info metadata. */
+        if (L < 8 || nstrcmp(dents[i].name + L - 4, ".INF") != 0)
             continue;
-        for (k = 0; k + 5 < L && k + 1 < sizeof(name); k++)
-            name[k] = dents[i].name[k];
-        name[k] = '\0';
-        if (db_read_key(name, "version", ver, sizeof(ver)) != 0)
+        nstrcpy(path, DB_DIR);
+        nstrcat(path, "/");
+        nstrcat(path, dents[i].name);
+        fd = sys_open(path, O_READ);
+        if (fd < 0)
+            continue;
+        for (;;) {
+            r = sys_read((int)fd, metabuf + total, sizeof(metabuf) - total);
+            if (r <= 0) break;
+            total += (u64)r;
+            if (total >= sizeof(metabuf)) break;
+        }
+        sys_close((int)fd);
+        if (newpkg_meta_get(metabuf, (u32)total, "name", name,
+                            (newpkg_usize)sizeof(name)) != 0)
+            continue;
+        if (newpkg_meta_get(metabuf, (u32)total, "version", ver,
+                            (newpkg_usize)sizeof(ver)) != 0)
             nstrcpy(ver, "?");
         putf("%s %s\n", name, ver);
         count++;

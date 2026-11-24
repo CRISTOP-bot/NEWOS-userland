@@ -14,8 +14,14 @@
 #ifndef NEWPKG_INTERNAL_H
 #define NEWPKG_INTERNAL_H
 
-#define DB_DIR "/var/lib/newpkg"
+/* On a FAT32-backed boot the database lives on /fat/NEWPKG so installed
+ * packages survive a reboot; otherwise it falls back to the RAM-backed
+ * /var/lib/newpkg. Resolved once at startup by newpkg_db_init(). */
+extern const char *g_db_dir;
+#define DB_DIR g_db_dir
 #define CHUNK  512
+
+void newpkg_db_init(void);
 
 /* Shared file-scope state (definitions: newpkg_main.c). */
 extern u8 g_io[CHUNK];
@@ -46,6 +52,7 @@ int valid_name(const char *name);
 /* newpkg_pkg.c: package/database core. */
 int load_package(const char *path);
 void entry_path(u32 k);
+void db_token(const char *name, char token[9]);
 void db_paths(const char *name, char *info, char *files);
 int db_read_key(const char *name, const char *key, char *out, u64 cap);
 int db_find_owner(const char *path, char *owner, u64 cap);

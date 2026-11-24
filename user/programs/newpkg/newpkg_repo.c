@@ -791,16 +791,30 @@ int cmd_upgrade_repo(void)
     for (i = 0; i < n; i++) {
         u64 L = nstrlen(dents[i].name);
         char name[NEWPKG_NAME_MAX], cur[NEWPKG_VER_MAX], avail[NEWPKG_VER_MAX];
+        char path[160];
+        u8 mb[NEWPKG_META_MAX + 256];
+        long mfd, mr;
+        u64 mt = 0;
 
-        if (L < 6 || nstrcmp(dents[i].name + L - 5, ".info") != 0)
+        /* 8.3 token file: read canonical name from .INF metadata. */
+        if (L < 8 || nstrcmp(dents[i].name + L - 4, ".INF") != 0)
             continue;
-        {
-            u64 k;
-
-            for (k = 0; k + 5 < L && k + 1 < sizeof(name); k++)
-                name[k] = dents[i].name[k];
-            name[k] = 0;
+        nstrcpy(path, DB_DIR);
+        nstrcat(path, "/");
+        nstrcat(path, dents[i].name);
+        mfd = sys_open(path, O_READ);
+        if (mfd < 0)
+            continue;
+        for (;;) {
+            mr = sys_read((int)mfd, mb + mt, sizeof(mb) - mt);
+            if (mr <= 0) break;
+            mt += (u64)mr;
+            if (mt >= sizeof(mb)) break;
         }
+        sys_close((int)mfd);
+        if (!mt || newpkg_meta_get(mb, (u32)mt, "name", name,
+                                   (newpkg_usize)sizeof(name)) != 0)
+            continue;
         if (db_read_key(name, "version", cur, sizeof(cur)) != 0)
             continue;
         checked++;

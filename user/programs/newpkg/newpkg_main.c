@@ -51,6 +51,22 @@ u8 g_man[NEWPKG_MANIFEST_MAX];
 char g_line[512];
 char g_path[NEWPKG_PATH_MAX];
 
+/* Persistent DB on /fat when the FAT32 disk is mounted, RAM otherwise. */
+const char *g_db_dir = "/var/lib/newpkg";
+
+void newpkg_db_init(void)
+{
+    /* /fat is the FAT32 mount from the ATA disk (fat32fs_init in boot). */
+    char probe[64];
+    long fd = sys_open("/fat", O_READ);
+    if (fd < 0)
+        return;
+    sys_close((int)fd);
+    nstrcpy(probe, "/fat/NEWPKG");
+    if (mkdir_p(probe) == 0)
+        g_db_dir = "/fat/NEWPKG";
+}
+
 /* Manifest entry tables (offsets into g_man + parsed fields). */
 u32 g_size[NEWPKG_FILES_MAX];
 u32 g_crc[NEWPKG_FILES_MAX];
@@ -182,6 +198,7 @@ static int cmd_usage(void)
 
 int main(int argc, char **argv)
 {
+    newpkg_db_init();
     if (argc < 2)
         return cmd_usage();
     if (nstrcmp(argv[1], "info") == 0) {
